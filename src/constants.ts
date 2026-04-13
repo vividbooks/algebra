@@ -10,6 +10,30 @@ export const X_PX = 61
 /** Při tažení — přichytání k pixelové mřížce (x a 1 sdílejí společný „pixelový“ lattice). */
 export const SNAP_PX = 1
 
+/**
+ * Rámeček dlaždice (styl PT) — inset obrys a posun spodní podložky jsou všude stejné (px),
+ * aby u větších dlaždic nepůsobily „silnější“ než u jednotky.
+ */
+export const ALGEBRA_TILE_FRAME_INSET_STROKE_PX = 3.5
+export const ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX = 3
+
+/** Volné plátno — stejný krok jako `workspace-scroll--free-geo-grid` v CSS (50px × zoom na obrazovce). */
+export const FREE_GRID_CELL_PX = 50
+
+/**
+ * Delší strana náhledu dlaždice ve spodní liště (px). Poměry stran = jako na plátně (tileFootprintFreeGrid).
+ */
+export const FREE_BANK_PREVIEW_MAX_SIDE_PX = 72
+
+/** Volné plátno — meze měřítka (slider, kolečko, tlačítka). Užší rozsah než dřív (bez extrémního in/out). */
+export const FREE_ZOOM_MIN = 0.55
+export const FREE_ZOOM_MAX = 1.85
+
+export function clampFreeZoom(z: number): number {
+  if (!Number.isFinite(z)) return 1
+  return Math.min(FREE_ZOOM_MAX, Math.max(FREE_ZOOM_MIN, z))
+}
+
 /** Do kolika px od cizí hrany se dlaždice magneticky přitáhne (k sobě i k okraji plochy). */
 export const MAGNET_SNAP_PX = 32
 

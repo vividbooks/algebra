@@ -1,16 +1,12 @@
-import { TYPO_MINUS } from '../constants'
+import {
+  ALGEBRA_TILE_FRAME_INSET_STROKE_PX,
+  ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX,
+  TYPO_MINUS,
+} from '../constants'
 import type { PlacedTile } from '../lib/tiles'
-import { tileFootprint } from '../lib/tiles'
+import { tileFootprintForMode, type TileGeomMode } from '../lib/tiles'
+import { Minus, Plus } from 'lucide-react'
 import { MathText } from './MathText'
-
-/** Kladné dlaždice — jednotná modrá; záporné červené. */
-const POS_BLUE = ['#2563eb', '#60a5fa'] as const
-
-const COLORS = {
-  x2: { pos: POS_BLUE, neg: ['#c43d3d', '#e85d5d'] },
-  x1: { pos: POS_BLUE, neg: ['#b91c1c', '#f87171'] },
-  unit: { pos: POS_BLUE, neg: ['#991b1b', '#ef4444'] },
-} as const
 
 function labelFor(kind: PlacedTile['kind'], negative: boolean): string {
   if (kind === 'x2') return negative ? `${TYPO_MINUS}x²` : 'x²'
@@ -28,10 +24,18 @@ interface TileViewProps {
   nonInteractive?: boolean
   /** Skrytý náhled (tažení řeší fixed ghost nad celou aplikací). */
   concealed?: boolean
+  /** Volné plátno — rozměry násobků mřížky (50 px), jinak klasická algebra. */
+  geometry?: TileGeomMode
   onPointerDown: (e: React.PointerEvent) => void
   onPointerUp?: (e: React.PointerEvent) => void
   onDoubleClick: (e: React.MouseEvent) => void
   onContextMenu?: (e: React.MouseEvent) => void
+  /** Plocha — po najetí myší tlačítko + pod dlaždicí (kopie vedle podle volného místa). */
+  onDuplicate?: () => void
+  /** Plocha — přepnutí znaménka (jako kontextové menu / pravý klik). */
+  onFlipSign?: () => void
+  /** Přehrávání záznamu — nulový pár před odstraněním (slabá neprůhlednost + přeškrtnutí). */
+  playbackZeroPairDim?: boolean
 }
 
 export function TileView({
@@ -41,15 +45,22 @@ export function TileView({
   layout = 'board',
   nonInteractive = false,
   concealed = false,
+  geometry = 'algebra',
   onPointerDown,
   onPointerUp,
   onDoubleClick,
   onContextMenu,
+  onDuplicate,
+  onFlipSign,
+  playbackZeroPairDim = false,
 }: TileViewProps) {
-  const { w, h } = tileFootprint(tile.kind, tile.rot)
-  const pal = COLORS[tile.kind][tile.negative ? 'neg' : 'pos']
-  const [c0, c1] = pal
+  const { w, h } = tileFootprintForMode(tile.kind, tile.rot, geometry)
   const onBoard = layout === 'board'
+  const showHoverChrome =
+    onBoard &&
+    !nonInteractive &&
+    !concealed &&
+    (onDuplicate != null || onFlipSign != null)
   const minSide = Math.min(w, h)
   const fontSize =
     tile.kind === 'unit'
@@ -57,35 +68,29 @@ export function TileView({
       : tile.kind === 'x1'
         ? minSide * 0.52
         : h * 0.28
+  const strokeW = ALGEBRA_TILE_FRAME_INSET_STROKE_PX
+  const radius = Math.min(minSide * 0.16, 26)
+  const shift = ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX
 
   return (
     <div
-      className={`algebra-tile algebra-tile--${tile.kind}${tile.negative ? ' algebra-tile--neg' : ''}${selected ? ' algebra-tile--selected' : ''}${dragging ? ' algebra-tile--drag' : ''}`}
+      className={`algebra-tile algebra-tile--${tile.kind}${tile.negative ? ' algebra-tile--neg' : ''}${tile.negative ? ' algebra-tile--pt-palette-neg' : ' algebra-tile--pt-palette-pos'}${selected ? ' algebra-tile--selected' : ''}${dragging ? ' algebra-tile--drag' : ''}${showHoverChrome ? ' algebra-tile--hover-chrome' : ''}${playbackZeroPairDim ? ' algebra-tile--playback-zero-pair' : ''}`}
       style={{
+        ['--at-stroke' as string]: `${strokeW}px`,
+        ['--at-r' as string]: `${radius}px`,
+        ['--at-shift' as string]: `${shift}px`,
+        ['--at-min' as string]: `${minSide}px`,
         position: onBoard ? 'absolute' : 'relative',
         left: onBoard ? tile.x : 0,
         top: onBoard ? tile.y : 0,
         width: w,
         height: h,
         boxSizing: 'border-box',
-        borderRadius: Math.min(10, Math.floor(Math.min(w, h) * 0.08)),
-        border: `${Math.max(2, Math.floor(Math.min(w, h) * 0.04))}px solid rgba(0,0,0,0.18)`,
-        background: `linear-gradient(145deg, ${c0}, ${c1})`,
-        boxShadow: dragging
-          ? '0 10px 28px rgba(0,0,0,0.28)'
-          : '0 2px 8px rgba(0,0,0,0.12)',
         opacity: concealed ? 0 : 1,
         cursor: nonInteractive ? 'inherit' : 'grab',
         touchAction: nonInteractive ? 'auto' : 'none',
         userSelect: 'none',
         pointerEvents: nonInteractive ? 'none' : 'auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'rgba(255,255,255,0.95)',
-        fontWeight: 700,
-        fontSize,
-        textShadow: '0 1px 2px rgba(0,0,0,0.25)',
         zIndex: onBoard ? (dragging ? 500 : selected ? 20 : 1) : 0,
       }}
       onPointerDown={onPointerDown}
@@ -93,9 +98,84 @@ export function TileView({
       onDoubleClick={onDoubleClick}
       onContextMenu={nonInteractive ? undefined : onContextMenu}
     >
-      <span>
-        <MathText text={labelFor(tile.kind, tile.negative)} />
+      {showHoverChrome && onFlipSign ? (
+        <>
+          <span
+            className="algebra-tile__hover-bridge-top"
+            aria-hidden
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            role="switch"
+            aria-checked={tile.negative}
+            className={`algebra-tile__sign-toggle${tile.negative ? ' algebra-tile__sign-toggle--neg' : ' algebra-tile__sign-toggle--pos'}`}
+            aria-label={
+              tile.negative
+                ? 'Záporná dlaždice, přepnout na kladnou'
+                : 'Kladná dlaždice, přepnout na zápornou'
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onFlipSign()
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          >
+            <span className="algebra-tile__sign-toggle__thumb" aria-hidden>
+              {tile.negative ? (
+                <Minus size={12} strokeWidth={2.6} />
+              ) : (
+                <Plus size={12} strokeWidth={2.6} />
+              )}
+            </span>
+          </button>
+        </>
+      ) : null}
+      <span className="algebra-tile__underlay" aria-hidden />
+      <span
+        className="algebra-tile__face"
+        style={{
+          fontSize,
+          textShadow: tile.negative
+            ? 'none'
+            : '0 1px 1px rgb(0 0 0 / 0.22)',
+        }}
+      >
+        <span className="algebra-tile__label">
+          <MathText text={labelFor(tile.kind, tile.negative)} />
+        </span>
       </span>
+      {showHoverChrome && onDuplicate ? (
+        <>
+          <span
+            className="algebra-tile__hover-bridge"
+            aria-hidden
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            className="algebra-tile__duplicate"
+            aria-label="Zkopírovat dlaždici"
+            onPointerDown={(e) => {
+              e.stopPropagation()
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDuplicate()
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          >
+            <Plus size={15} strokeWidth={2.6} aria-hidden />
+          </button>
+        </>
+      ) : null}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { UNIT_PX, X_PX } from '../constants'
+import { FREE_GRID_CELL_PX, TYPO_MINUS, UNIT_PX, X_PX } from '../constants'
 import type { PolyUpTo3 } from './parsePolyUpTo3'
 
 export type TileKind = 'x2' | 'x1' | 'unit'
@@ -42,10 +42,57 @@ export function tileFootprint(
   }
 }
 
-/** Pixely [x,y] uvnitř dlaždice (pro kontrolu překryvu a výplně). */
-export function tileCells(tile: PlacedTile): [number, number][] {
-  const { w, h } = tileFootprint(tile.kind, tile.rot)
+/** Režim geometrie: klasická algebra vs. násobky mřížky na volném plátně (FREE_GRID_CELL_PX). */
+export type TileGeomMode = 'algebra' | 'freeGrid'
+
+/** x² = 2×2 buňky, x = 2×1 (podle rotace), jednotka = 1×1 — shodně s CSS mřížkou. */
+export function tileFootprintFreeGrid(
+  kind: TileKind,
+  rot: 0 | 1
+): { w: number; h: number } {
+  const G = FREE_GRID_CELL_PX
+  switch (kind) {
+    case 'x2':
+      return { w: 2 * G, h: 2 * G }
+    case 'x1':
+      return rot === 0
+        ? { w: 2 * G, h: G }
+        : { w: G, h: 2 * G }
+    case 'unit':
+      return { w: G, h: G }
+  }
+}
+
+export function tileFootprintForMode(
+  kind: TileKind,
+  rot: 0 | 1,
+  mode: TileGeomMode
+): { w: number; h: number } {
+  return mode === 'freeGrid'
+    ? tileFootprintFreeGrid(kind, rot)
+    : tileFootprint(kind, rot)
+}
+
+/**
+ * Buňky pro kontrolu překryvu: u `algebra` každý pixel; u `freeGrid` levé horní rohy buněk mřížky (krok G).
+ */
+export function tileCells(
+  tile: PlacedTile,
+  mode: TileGeomMode = 'algebra'
+): [number, number][] {
+  const { w, h } = tileFootprintForMode(tile.kind, tile.rot, mode)
   const out: [number, number][] = []
+  if (mode === 'freeGrid') {
+    const G = FREE_GRID_CELL_PX
+    const cw = w / G
+    const ch = h / G
+    for (let ix = 0; ix < cw; ix++) {
+      for (let iy = 0; iy < ch; iy++) {
+        out.push([tile.x + ix * G, tile.y + iy * G])
+      }
+    }
+    return out
+  }
   for (let dx = 0; dx < w; dx++) {
     for (let dy = 0; dy < h; dy++) {
       out.push([tile.x + dx, tile.y + dy])
@@ -54,11 +101,15 @@ export function tileCells(tile: PlacedTile): [number, number][] {
   return out
 }
 
-export function cellsOverlap(a: PlacedTile[], skipId?: string): boolean {
+export function cellsOverlap(
+  a: PlacedTile[],
+  skipId?: string,
+  mode: TileGeomMode = 'algebra'
+): boolean {
   const seen = new Set<string>()
   for (const t of a) {
     if (t.id === skipId) continue
-    for (const [cx, cy] of tileCells(t)) {
+    for (const [cx, cy] of tileCells(t, mode)) {
       const k = `${cx},${cy}`
       if (seen.has(k)) return true
       seen.add(k)
@@ -67,18 +118,22 @@ export function cellsOverlap(a: PlacedTile[], skipId?: string): boolean {
   return false
 }
 
-export function hasOverlap(tiles: PlacedTile[]): boolean {
-  return cellsOverlap(tiles)
+export function hasOverlap(
+  tiles: PlacedTile[],
+  mode: TileGeomMode = 'algebra'
+): boolean {
+  return cellsOverlap(tiles, undefined, mode)
 }
 
 export function overlapsOthers(
   tiles: PlacedTile[],
-  tile: PlacedTile
+  tile: PlacedTile,
+  mode: TileGeomMode = 'algebra'
 ): boolean {
   const others = tiles.filter((t) => t.id !== tile.id)
-  const mine = new Set(tileCells(tile).map(([x, y]) => `${x},${y}`))
+  const mine = new Set(tileCells(tile, mode).map(([x, y]) => `${x},${y}`))
   for (const t of others) {
-    for (const [cx, cy] of tileCells(t)) {
+    for (const [cx, cy] of tileCells(t, mode)) {
       if (mine.has(`${cx},${cy}`)) return true
     }
   }
@@ -88,15 +143,43 @@ export function overlapsOthers(
 /**
  * Kladná + záporná stejného druhu se společným „pixelem“ (u x i shodná rotace) → nulový pár.
  */
-export function tilesAreZeroPairOverlapping(a: PlacedTile, b: PlacedTile): boolean {
+export function tilesAreZeroPairOverlapping(
+  a: PlacedTile,
+  b: PlacedTile,
+  mode: TileGeomMode = 'algebra'
+): boolean {
   if (a.id === b.id) return false
   if (a.kind !== b.kind || a.negative === b.negative) return false
   if (a.kind === 'x1' && a.rot !== b.rot) return false
-  const cellsA = new Set(tileCells(a).map(([x, y]) => `${x},${y}`))
-  for (const [x, y] of tileCells(b)) {
+  const cellsA = new Set(tileCells(a, mode).map(([x, y]) => `${x},${y}`))
+  for (const [x, y] of tileCells(b, mode)) {
     if (cellsA.has(`${x},${y}`)) return true
   }
   return false
+}
+
+/** Odstraní všechny nulové páry z plochy, dokud žádný nezbývá. */
+export function eliminateAllZeroPairs(
+  tiles: PlacedTile[],
+  mode: TileGeomMode
+): PlacedTile[] {
+  let cur = tiles
+  let changed = true
+  while (changed) {
+    changed = false
+    outer: for (let i = 0; i < cur.length; i++) {
+      for (let j = i + 1; j < cur.length; j++) {
+        if (tilesAreZeroPairOverlapping(cur[i], cur[j], mode)) {
+          const a = cur[i].id
+          const b = cur[j].id
+          cur = cur.filter((t) => t.id !== a && t.id !== b)
+          changed = true
+          break outer
+        }
+      }
+    }
+  }
+  return cur
 }
 
 /**
@@ -114,4 +197,48 @@ export function polynomialFromPlacedTiles(tiles: PlacedTile[]): PolyUpTo3 {
     else a0 += s
   }
   return { a3, a2, a1, a0 }
+}
+
+/**
+ * Zápis podle skutečných dlaždic — každá dlaždice je vlastní člen, bez slučování
+ * (např. x + x + 1 + 1 místo 2x + 2). Pořadí: shora dolů, zleva doprava.
+ */
+export function formatPlacedTilesAsSum(tiles: PlacedTile[]): string {
+  if (tiles.length === 0) return '0'
+  const sorted = [...tiles].sort((a, b) => a.y - b.y || a.x - b.x)
+  let s = ''
+  for (let i = 0; i < sorted.length; i++) {
+    const t = sorted[i]
+    const body = t.kind === 'x2' ? 'x²' : t.kind === 'x1' ? 'x' : '1'
+    if (i === 0) {
+      s = t.negative ? `${TYPO_MINUS} ${body}` : body
+    } else {
+      s += t.negative ? ` ${TYPO_MINUS} ${body}` : ` + ${body}`
+    }
+  }
+  return s
+}
+
+/**
+ * Rozdělí dlaždice podle svislého pásu rovnítka: levý okraj pásu `eqBandLeft`, šířka buňky `cellPx`.
+ * Střed pásu je „čára“; dlaždice podle středu své šířky (x + w/2) vlevo nebo vpravo.
+ */
+export function partitionTilesByEqualsColumn(
+  tiles: PlacedTile[],
+  eqBandLeft: number,
+  cellPx: number,
+  mode: TileGeomMode
+): { left: PlacedTile[]; right: PlacedTile[] } {
+  const mid = eqBandLeft + cellPx / 2
+  const left: PlacedTile[] = []
+  const right: PlacedTile[] = []
+  for (const t of tiles) {
+    const { w } = tileFootprintForMode(t.kind, t.rot, mode)
+    const cx = t.x + w / 2
+    if (cx < mid) left.push(t)
+    else right.push(t)
+  }
+  left.sort((a, b) => a.y - b.y || a.x - b.x)
+  right.sort((a, b) => a.y - b.y || a.x - b.x)
+  return { left, right }
 }

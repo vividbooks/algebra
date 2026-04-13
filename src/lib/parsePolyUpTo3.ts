@@ -2,7 +2,7 @@
  * Parsuje polynom v x až stupně 3 (členy x³, x², x, konstanta).
  */
 
-import { UNICODE_MINUS_LIKE_RE } from '../constants'
+import { TYPO_MINUS, UNICODE_MINUS_LIKE_RE } from '../constants'
 
 export type PolyUpTo3 = {
   a3: number
@@ -88,4 +88,47 @@ export function polyUpTo3Equal(u: PolyUpTo3 | null, v: PolyUpTo3 | null): boolea
     u.a1 === v.a1 &&
     u.a0 === v.a0
   )
+}
+
+export type PolyUpTo3Chunk = { plus: boolean; text: string }
+
+/**
+ * Nenulové členy polynomu ve standardním pořadí (x³ … konstanta), pro barevné vykreslení nebo zápis.
+ */
+export function polyUpTo3Chunks(p: PolyUpTo3): PolyUpTo3Chunk[] {
+  const chunks: PolyUpTo3Chunk[] = []
+  const push = (coef: number, pow: 0 | 1 | 2 | 3) => {
+    if (coef === 0) return
+    const plus = coef > 0
+    const c = Math.abs(coef)
+    let text = ''
+    if (pow === 3) text = c === 1 ? 'x³' : `${c}x³`
+    else if (pow === 2) text = c === 1 ? 'x²' : `${c}x²`
+    else if (pow === 1) text = c === 1 ? 'x' : `${c}x`
+    else text = String(c)
+    chunks.push({ plus, text })
+  }
+  push(p.a3, 3)
+  push(p.a2, 2)
+  push(p.a1, 1)
+  push(p.a0, 0)
+  return chunks
+}
+
+/**
+ * Čitelný zápis polynomu (např. pro náhled z dlaždic) — stejná typografie mínusu jako ve výrazech úloh.
+ */
+export function formatPolyUpTo3Expr(p: PolyUpTo3): string {
+  const chunks = polyUpTo3Chunks(p)
+  if (chunks.length === 0) return '0'
+  let s = ''
+  for (let i = 0; i < chunks.length; i++) {
+    const { plus, text } = chunks[i]!
+    if (i === 0) {
+      s = plus ? text : `${TYPO_MINUS} ${text}`
+    } else {
+      s += plus ? ` + ${text}` : ` ${TYPO_MINUS} ${text}`
+    }
+  }
+  return s
 }
