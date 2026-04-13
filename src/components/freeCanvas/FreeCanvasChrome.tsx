@@ -38,17 +38,6 @@ function IconSun({ className }: { className?: string }) {
   )
 }
 
-function IconGrid({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect width="7" height="7" x="3" y="3" rx="1" />
-      <rect width="7" height="7" x="14" y="3" rx="1" />
-      <rect width="7" height="7" x="14" y="14" rx="1" />
-      <rect width="7" height="7" x="3" y="14" rx="1" />
-    </svg>
-  )
-}
-
 function IconUndo({ className }: { className?: string }) {
   return (
     <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -83,23 +72,22 @@ type TopBarProps = {
   onZoomChange: (z: number) => void
   darkMode: boolean
   onDarkModeChange: (v: boolean) => void
-  showGrid: boolean
-  onShowGridChange: (v: boolean) => void
-  /** Rovnice — prostřední sloupec mřížky + rozdělený zápis. */
+  /** Rovnice — prostřední sloupec + rozdělený zápis. */
   equalsMode: boolean
   onEqualsModeChange: (v: boolean) => void
+  /** Vypnout tlačítko „=“ (režim Rovnice na volném plátně má vlastní zadání). */
+  showEqualsButton?: boolean
 }
 
-/** Horní lišta — zoom, slider, tmavý režim, přepínač mřížky. */
+/** Horní lišta — zoom, slider, tmavý režim, režim rovnice. */
 export const FreeCanvasTopBar: FC<TopBarProps> = ({
   zoom,
   onZoomChange,
   darkMode,
   onDarkModeChange,
-  showGrid,
-  onShowGridChange,
   equalsMode,
   onEqualsModeChange,
+  showEqualsButton = true,
 }) => {
   const zoomToCenter = (z: number) => onZoomChange(clampFreeZoom(z))
 
@@ -109,23 +97,27 @@ export const FreeCanvasTopBar: FC<TopBarProps> = ({
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <button
-        type="button"
-        className={`geo-topbar__btn${equalsMode ? ' geo-topbar__btn--active' : ''}`}
-        onClick={() => onEqualsModeChange(!equalsMode)}
-        title={
-          equalsMode
-            ? 'Vypnout rovnici (jedna strana)'
-            : 'Zapnout rovnici — rozdělit plochu rovnítkem'
-        }
-        aria-pressed={equalsMode}
-        aria-label="Rovnice — rozdělení plochy rovnítkem"
-      >
-        <span className="geo-topbar__eq-icon" aria-hidden>
-          =
-        </span>
-      </button>
-      <div className="geo-topbar__sep" aria-hidden />
+      {showEqualsButton ? (
+        <>
+          <button
+            type="button"
+            className={`geo-topbar__btn${equalsMode ? ' geo-topbar__btn--active' : ''}`}
+            onClick={() => onEqualsModeChange(!equalsMode)}
+            title={
+              equalsMode
+                ? 'Vypnout rovnici (jedna strana)'
+                : 'Zapnout rovnici — rozdělit plochu rovnítkem'
+            }
+            aria-pressed={equalsMode}
+            aria-label="Rovnice — rozdělení plochy rovnítkem"
+          >
+            <span className="geo-topbar__eq-icon" aria-hidden>
+              =
+            </span>
+          </button>
+          <div className="geo-topbar__sep" aria-hidden />
+        </>
+      ) : null}
       <button
         type="button"
         className="geo-topbar__btn"
@@ -164,16 +156,6 @@ export const FreeCanvasTopBar: FC<TopBarProps> = ({
       >
         {darkMode ? <IconSun className="geo-topbar__icon" /> : <IconMoon className="geo-topbar__icon" />}
       </button>
-      <div className="geo-topbar__sep" aria-hidden />
-      <button
-        type="button"
-        className={`geo-topbar__btn${showGrid ? ' geo-topbar__btn--active' : ''}`}
-        onClick={() => onShowGridChange(!showGrid)}
-        title={showGrid ? 'Skrýt mřížku' : 'Zobrazit mřížku'}
-        aria-pressed={showGrid}
-      >
-        <IconGrid className="geo-topbar__icon" />
-      </button>
     </div>
   )
 }
@@ -186,6 +168,8 @@ type RightBarProps = {
   onRedo: () => void
   isRecording: boolean
   onToggleRecording: () => void
+  /** Režim Rovnice — nahrávání kroků se nepoužívá. */
+  showRecordingButton?: boolean
   notesOpen: boolean
   onToggleNotes: () => void
   notesBadgeCount: number
@@ -200,6 +184,7 @@ export const FreeCanvasRightBar: FC<RightBarProps> = ({
   onRedo,
   isRecording,
   onToggleRecording,
+  showRecordingButton = true,
   notesOpen,
   onToggleNotes,
   notesBadgeCount,
@@ -226,26 +211,28 @@ export const FreeCanvasRightBar: FC<RightBarProps> = ({
     >
       <IconRedo className="geo-rightbar__icon" />
     </button>
-    <div className="geo-rightbar__btn--record-wrap">
-      <button
-        type="button"
-        className={`geo-rightbar__btn geo-rightbar__btn--record${isRecording ? ' geo-rightbar__btn--recording' : ''}`}
-        onClick={onToggleRecording}
-        title={isRecording ? 'Zastavit nahrávání' : 'Začít nahrávání'}
-      >
-        {isRecording ? (
-          <>
-            <span className="geo-rightbar__rec-square" />
-            <span className="geo-rightbar__rec-ping" aria-hidden />
-          </>
-        ) : (
-          <span className="geo-rightbar__rec-idle" aria-hidden />
-        )}
-      </button>
-      {!isRecording ? (
-        <span className="geo-rightbar__rec-tooltip">Nahrávat postup</span>
-      ) : null}
-    </div>
+    {showRecordingButton ? (
+      <div className="geo-rightbar__btn--record-wrap">
+        <button
+          type="button"
+          className={`geo-rightbar__btn geo-rightbar__btn--record${isRecording ? ' geo-rightbar__btn--recording' : ''}`}
+          onClick={onToggleRecording}
+          title={isRecording ? 'Zastavit nahrávání' : 'Začít nahrávání'}
+        >
+          {isRecording ? (
+            <>
+              <span className="geo-rightbar__rec-square" />
+              <span className="geo-rightbar__rec-ping" aria-hidden />
+            </>
+          ) : (
+            <span className="geo-rightbar__rec-idle" aria-hidden />
+          )}
+        </button>
+        {!isRecording ? (
+          <span className="geo-rightbar__rec-tooltip">Nahrávat postup</span>
+        ) : null}
+      </div>
+    ) : null}
     <button
       type="button"
       className={`geo-rightbar__btn${notesOpen ? ' geo-rightbar__btn--active' : ''}`}

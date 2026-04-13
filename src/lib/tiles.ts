@@ -1,4 +1,10 @@
-import { FREE_GRID_CELL_PX, TYPO_MINUS, UNIT_PX, X_PX } from '../constants'
+import {
+  FREE_GRID_X1_SHORT_PX,
+  FREE_GRID_X_LONG_PX,
+  TYPO_MINUS,
+  UNIT_PX,
+  X_PX,
+} from '../constants'
 import type { PolyUpTo3 } from './parsePolyUpTo3'
 
 export type TileKind = 'x2' | 'x1' | 'unit'
@@ -45,21 +51,22 @@ export function tileFootprint(
 /** Režim geometrie: klasická algebra vs. násobky mřížky na volném plátně (FREE_GRID_CELL_PX). */
 export type TileGeomMode = 'algebra' | 'freeGrid'
 
-/** x² = 2×2 buňky, x = 2×1 (podle rotace), jednotka = 1×1 — shodně s CSS mřížkou. */
+/** x² = čtverec FREE_GRID_X_LONG_PX, x = tento bok × krátká strana, jednotka = čtverec krátké strany. */
 export function tileFootprintFreeGrid(
   kind: TileKind,
   rot: 0 | 1
 ): { w: number; h: number } {
-  const G = FREE_GRID_CELL_PX
+  const xLong = FREE_GRID_X_LONG_PX
+  const xShort = FREE_GRID_X1_SHORT_PX
   switch (kind) {
     case 'x2':
-      return { w: 2 * G, h: 2 * G }
+      return { w: xLong, h: xLong }
     case 'x1':
       return rot === 0
-        ? { w: 2 * G, h: G }
-        : { w: G, h: 2 * G }
+        ? { w: xLong, h: xShort }
+        : { w: xShort, h: xLong }
     case 'unit':
-      return { w: G, h: G }
+      return { w: xShort, h: xShort }
   }
 }
 
@@ -73,32 +80,20 @@ export function tileFootprintForMode(
     : tileFootprint(kind, rot)
 }
 
-/**
- * Buňky pro kontrolu překryvu: u `algebra` každý pixel; u `freeGrid` levé horní rohy buněk mřížky (krok G).
- */
-export function tileCells(
-  tile: PlacedTile,
-  mode: TileGeomMode = 'algebra'
-): [number, number][] {
-  const { w, h } = tileFootprintForMode(tile.kind, tile.rot, mode)
-  const out: [number, number][] = []
-  if (mode === 'freeGrid') {
-    const G = FREE_GRID_CELL_PX
-    const cw = w / G
-    const ch = h / G
-    for (let ix = 0; ix < cw; ix++) {
-      for (let iy = 0; iy < ch; iy++) {
-        out.push([tile.x + ix * G, tile.y + iy * G])
-      }
-    }
-    return out
-  }
-  for (let dx = 0; dx < w; dx++) {
-    for (let dy = 0; dy < h; dy++) {
-      out.push([tile.x + dx, tile.y + dy])
-    }
-  }
-  return out
+/** Osy rovnoběžné obdélníky (levý horní roh + rozměry z `tileFootprintForMode`). */
+export function tileRectsOverlap(
+  a: PlacedTile,
+  b: PlacedTile,
+  mode: TileGeomMode
+): boolean {
+  const fa = tileFootprintForMode(a.kind, a.rot, mode)
+  const fb = tileFootprintForMode(b.kind, b.rot, mode)
+  return (
+    a.x < b.x + fb.w &&
+    b.x < a.x + fa.w &&
+    a.y < b.y + fb.h &&
+    b.y < a.y + fa.h
+  )
 }
 
 export function cellsOverlap(
@@ -106,13 +101,10 @@ export function cellsOverlap(
   skipId?: string,
   mode: TileGeomMode = 'algebra'
 ): boolean {
-  const seen = new Set<string>()
-  for (const t of a) {
-    if (t.id === skipId) continue
-    for (const [cx, cy] of tileCells(t, mode)) {
-      const k = `${cx},${cy}`
-      if (seen.has(k)) return true
-      seen.add(k)
+  const list = skipId ? a.filter((t) => t.id !== skipId) : a
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      if (tileRectsOverlap(list[i]!, list[j]!, mode)) return true
     }
   }
   return false
@@ -131,17 +123,14 @@ export function overlapsOthers(
   mode: TileGeomMode = 'algebra'
 ): boolean {
   const others = tiles.filter((t) => t.id !== tile.id)
-  const mine = new Set(tileCells(tile, mode).map(([x, y]) => `${x},${y}`))
   for (const t of others) {
-    for (const [cx, cy] of tileCells(t, mode)) {
-      if (mine.has(`${cx},${cy}`)) return true
-    }
+    if (tileRectsOverlap(tile, t, mode)) return true
   }
   return false
 }
 
 /**
- * Kladná + záporná stejného druhu se společným „pixelem“ (u x i shodná rotace) → nulový pár.
+ * Kladná + záporná stejného druhu s neprázdným průnikem ploch (u x i shodná rotace) → nulový pár.
  */
 export function tilesAreZeroPairOverlapping(
   a: PlacedTile,
@@ -151,11 +140,7 @@ export function tilesAreZeroPairOverlapping(
   if (a.id === b.id) return false
   if (a.kind !== b.kind || a.negative === b.negative) return false
   if (a.kind === 'x1' && a.rot !== b.rot) return false
-  const cellsA = new Set(tileCells(a, mode).map(([x, y]) => `${x},${y}`))
-  for (const [x, y] of tileCells(b, mode)) {
-    if (cellsA.has(`${x},${y}`)) return true
-  }
-  return false
+  return tileRectsOverlap(a, b, mode)
 }
 
 /** Odstraní všechny nulové páry z plochy, dokud žádný nezbývá. */

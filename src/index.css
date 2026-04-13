@@ -5,8 +5,38 @@
   font-style: italic;
 }
 
+/**
+ * Fenomen Sans — v projektu nejsou dodané soubory (licence / nákup, např. Suitcase Type).
+ * 1) Nainstalujte font v systému → použije se přes local().
+ * 2) Nebo vložte do public/fonts/ např. FenomenSans-Regular.woff2 a FenomenSans-Bold.woff2
+ */
+@font-face {
+  font-family: 'Fenomen Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local('Fenomen Sans'),
+    local('FenomenSans-Regular'),
+    url('/fonts/FenomenSans-Regular.woff2') format('woff2'),
+    url('/fonts/FenomenSans-Regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Fenomen Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local('Fenomen Sans Bold'),
+    local('FenomenSans-Bold'),
+    url('/fonts/FenomenSans-Bold.woff2') format('woff2'),
+    url('/fonts/FenomenSans-Bold.woff') format('woff');
+}
+
 :root {
   --font-math-cooper: 'Cooper BT', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-fenomen: 'Fenomen Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bg: #f4f6fa;
   --surface: #ffffff;
   --text: #1e293b;
@@ -149,10 +179,10 @@ body {
 
 .bank-sidebar--free-tools .bank-rail__tool {
   box-sizing: border-box;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
   padding: 0;
   border: none;
   border-radius: 10px;
@@ -183,15 +213,15 @@ body {
 }
 
 .bank-sidebar--free-tools .bank-rail__tool-icon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .bank-sidebar--free-tools .bank-rail__back {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  min-width: 32px;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  min-width: 38px;
 }
 
 /* Zpět — kompaktní čtverec v panelu */
@@ -318,19 +348,21 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 5px;
 }
 
 .bank-sidebar--free-tools .bank-rail__clear-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .bank-sidebar--free-tools .bank-rail__clear {
   position: relative;
   box-sizing: border-box;
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
   padding: 0;
   margin: 0;
   border-radius: 10px;
@@ -392,9 +424,59 @@ body {
 
 .sidebar-check-stack {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.45rem;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
+}
+
+.check-icon-button {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 2.85rem;
+  min-width: 2.85rem;
+  height: 2.85rem;
+  min-height: 2.85rem;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(22 163 74 / 0.35);
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.check-icon-button:hover {
+  background: #15803d;
+}
+
+.check-icon-button:focus-visible {
+  outline: 2px solid rgb(22 163 74 / 0.55);
+  outline-offset: 2px;
+}
+
+.check-icon-button__icon {
+  display: block;
+}
+
+.equation-free-answer-banner--dark .check-icon-button,
+.simplify-free-answer-banner--dark .check-icon-button,
+.expand-free-answer-banner--dark .check-icon-button {
+  background: #22c55e;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+.equation-free-answer-banner--dark .check-icon-button:hover,
+.simplify-free-answer-banner--dark .check-icon-button:hover,
+.expand-free-answer-banner--dark .check-icon-button:hover {
+  background: #16a34a;
 }
 
 .task-random-intro + .btn {
@@ -1426,23 +1508,184 @@ body {
   box-sizing: border-box;
 }
 
-.main-menu__hero {
-  text-align: center;
-  margin-bottom: 2rem;
+/* --- Hlavní menu ve stylu geometrické aplikace (horní lišta + pastelové karty) --- */
+.main-menu.main-menu--geo {
+  --main-menu-ink: #3f4d5c;
+  --main-menu-ink-muted: #5c6b7a;
+
+  max-width: none;
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  background: #ffffff;
+  font-family: var(--font-fenomen);
 }
 
-.main-menu__title {
-  margin: 0 0 0.65rem;
-  font-size: clamp(1.5rem, 4vw, 1.85rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text);
+.main-menu__masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.25rem;
+  padding: 1rem 1.75rem 1rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-sizing: border-box;
+}
+
+.main-menu__brand {
+  margin: 0;
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: clamp(1.05rem, 2.1vw, 1.45rem);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--main-menu-ink);
+  line-height: 1.25;
+  font-family: var(--font-fenomen);
+}
+
+.main-menu__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+}
+
+.main-menu__tab {
+  padding: 0.48rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgb(95 112 128 / 0.65);
+  background: #ffffff;
+  color: var(--main-menu-ink);
+  font-weight: 400;
+  font-size: 0.86rem;
+  font-family: var(--font-fenomen);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.main-menu__tab:hover {
+  background: #f8fafc;
+}
+
+.main-menu__tab--active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 2px 10px rgb(37 99 235 / 0.42);
+}
+
+.main-menu__tab--active:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 3px 12px rgb(37 99 235 / 0.48);
+}
+
+.main-menu__tab:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.main-menu__body {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem 3rem;
+  box-sizing: border-box;
+  font-family: var(--font-fenomen);
+}
+
+.main-menu__section-title {
+  margin: 0 0 1.35rem;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--main-menu-ink);
+  line-height: 1.2;
+  font-family: var(--font-fenomen);
+}
+
+.main-menu__help-panel-wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+.main-menu__help-panel-wrap .controls-help-panel {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem 1.25rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  font-family: var(--font-fenomen);
+  color: var(--main-menu-ink);
+}
+
+.main-menu__help-panel-wrap .controls-help__h {
+  font-weight: 500;
+  color: var(--main-menu-ink);
+}
+
+.main-menu__help-panel-wrap .controls-help__lead {
+  color: var(--main-menu-ink-muted);
+}
+
+.main-menu__help-panel-wrap .controls-help__list li {
+  color: var(--main-menu-ink);
+}
+
+.main-menu__help-panel-wrap .controls-help-panel strong {
+  font-weight: 500;
+  color: var(--main-menu-ink);
 }
 
 .main-menu__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+}
+
+.main-menu__grid--geo {
+  gap: 1.25rem;
+}
+
+/* Jako geometrie: první řádek se 4 kartami na širokém displeji */
+.main-menu__grid--practice {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.main-menu__free-single {
+  display: flex;
+  justify-content: center;
+  max-width: 22rem;
+  margin: 0 auto;
+}
+
+.main-menu__free-single .main-menu__card--geo {
+  width: 100%;
+  min-height: 12rem;
+}
+
+@media (max-width: 1050px) {
+  .main-menu__grid--practice {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .main-menu__grid--practice {
+    grid-template-columns: 1fr;
+  }
 }
 
 .main-menu__card {
@@ -1462,20 +1705,103 @@ body {
     transform 0.12s ease;
 }
 
-.main-menu__card:hover {
-  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
-  box-shadow: 0 4px 14px rgb(37 99 235 / 12%);
-  transform: translateY(-2px);
+.main-menu__card--geo {
+  position: relative;
+  min-height: 11rem;
+  padding: 1.1rem 1.1rem 1rem;
+  border-radius: 18px;
+  border-width: 1px;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 5%),
+    0 4px 16px rgb(15 23 42 / 6%);
+  align-items: stretch;
+  font-family: var(--font-fenomen);
 }
 
-.main-menu__card:focus-visible {
-  outline: 2px solid var(--primary);
+.main-menu__card--geo:hover {
+  border-color: rgb(30 58 138 / 0.35);
+  transform: translateY(-3px);
+  box-shadow:
+    0 2px 4px rgb(30 58 138 / 8%),
+    0 10px 28px rgb(30 58 138 / 10%);
+}
+
+.main-menu__card--geo:focus-visible {
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+.main-menu__card--tone-0 {
+  background: #e3f2fd;
+  border-color: rgb(100 181 246 / 0.45);
+}
+
+.main-menu__card--tone-1 {
+  background: #fffde7;
+  border-color: rgb(255 213 79 / 0.55);
+}
+
+.main-menu__card--tone-2 {
+  background: #e8f5e9;
+  border-color: rgb(129 199 132 / 0.5);
+}
+
+.main-menu__card--tone-3 {
+  background: #fce4ec;
+  border-color: rgb(240 98 146 / 0.45);
+}
+
+.main-menu__card--tone-free {
+  background: #e3f2fd;
+  border-color: rgb(100 181 246 / 0.45);
+}
+
+.main-menu__card-visual {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.main-menu__card-icon {
+  color: var(--main-menu-ink);
+  opacity: 0.78;
+}
+
+.main-menu__card-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.65rem;
+  width: 100%;
+  margin-top: auto;
+}
+
+.main-menu__card--geo .main-menu__card-title {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--main-menu-ink);
+  margin: 0;
+  text-align: left;
+  line-height: 1.25;
+  font-family: var(--font-fenomen);
+}
+
+.main-menu__card-arrow {
+  flex-shrink: 0;
+  color: var(--main-menu-ink-muted);
+  align-self: center;
+}
+
+.main-menu__card--geo:hover .main-menu__card-arrow {
+  color: #64748b;
 }
 
 .main-menu__card-title {
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 500;
   color: var(--text);
   margin: 0;
 }
@@ -1558,35 +1884,34 @@ body {
   /* Plátno přes celou plochu; horní a dolní lišty jen překrývají (absolute/fixed). */
   padding-top: 0;
   padding-bottom: 0;
-  /* Odsazení při scrollu, aby byl obsah dostupný pod fixním zápisem dole */
-  scroll-padding-bottom: 4.5rem;
+  scroll-padding-bottom: 0;
 }
 
+/* Viewport vyplní sloupec; posun je jen přes kameru (translate), ne nativní scroll. */
 .app.app--free-geometry .workspace-scroll.workspace-scroll--free-geo .workspace-board-fill {
   flex: 1 1 auto;
-  min-width: 100%;
   min-height: 0;
+  min-width: 0;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.workspace-board-fill--free-viewport {
+  position: relative;
 }
 
 .workspace-scroll--free-geo {
-  --geo-grid-line: rgba(229, 231, 235, 0.8);
   background-color: #ffffff;
-  /* Volné plátno — horizontální i vertikální posun + správné scrollLeft při zoomu. */
-  overflow: auto;
+  /* Figma-like: žádný scroll kontejneru — jen overflow skrytý, pan přes ruku. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .workspace-scroll--free-geo.workspace-scroll--free-geo-dark {
-  --geo-grid-line: rgba(125, 107, 194, 0.15);
   background-color: #1a1b26;
-}
-
-/* Mřížka na vnitřním plátně — stejné měřítko jako FREE_GRID_CELL_PX + transform: scale(zoom). */
-.workspace--free-inner.workspace--free-inner--grid {
-  background-image:
-    linear-gradient(to right, var(--geo-grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--geo-grid-line) 1px, transparent 1px);
-  background-size: 50px 50px;
 }
 
 /* Horní pilulková lišta (#F2F2F2 jako v rysování) */
@@ -1680,11 +2005,8 @@ body {
   color: var(--muted);
 }
 
-/* Svislý pás rovnítka — zatmavená buňka mřížky uprostřed šířky */
+/* Svislý pás rovnítka ve světě — výška z inline (dlouhá „nekonečná“ čára v transformovaném prostoru). */
 .free-eq-band {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: rgb(37 99 235 / 0.11);
   border-left: 1px solid rgb(37 99 235 / 0.22);
   border-right: 1px solid rgb(37 99 235 / 0.22);
@@ -1696,7 +2018,12 @@ body {
   border-right-color: rgb(96 165 250 / 0.28);
 }
 
-.free-eq-band__mark {
+/* Znak = — fixed px z useLayoutEffect (střed .workspace-scroll + střed sloupce). */
+.free-eq-viewport-mark {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  z-index: 48;
+  pointer-events: none;
   font-size: clamp(3rem, 8.4vmin, 3.8rem);
   font-weight: 600;
   font-family: var(--font-math-cooper);
@@ -1705,14 +2032,13 @@ body {
   line-height: 1;
   letter-spacing: -0.04em;
   user-select: none;
-  /* Kontrast vůči průhlednému pásu — bez toho je „=“ téměř nevidět */
   text-shadow:
     0 0 1px #fff,
     0 0 10px #fff,
     0 1px 2px rgb(255 255 255 / 0.95);
 }
 
-.free-eq-band--dark .free-eq-band__mark {
+.free-eq-viewport-mark--dark {
   color: #e8ecff;
   text-shadow:
     0 0 2px rgb(15 23 42 / 0.9),
@@ -1742,6 +2068,510 @@ body {
 
 .free-poly-expr--dark .free-poly-expr__eq {
   color: #94a3b8;
+}
+
+/* Rovnice / zjednodušování na volném plátně — zadání nahoře (fixed nad výřezem). */
+.equation-free-task-banner,
+.simplify-free-task-banner {
+  position: fixed;
+  left: 50%;
+  top: max(5.25rem, calc(env(safe-area-inset-top, 0px) + 4.5rem));
+  transform: translateX(-50%);
+  z-index: 51;
+  max-width: min(calc(100vw - 24px), 36rem);
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgb(147 197 253 / 0.85);
+  box-shadow:
+    0 1px 2px rgb(37 99 235 / 0.08),
+    0 4px 14px rgb(0 0 0 / 0.07);
+  color: var(--text);
+  font-size: clamp(1.85rem, 5vw, 2.2rem);
+  font-weight: 300;
+  font-style: italic;
+  font-family: var(--font-math-cooper);
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.simplify-free-task-banner__lead {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-style: normal;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.15rem;
+}
+
+.simplify-free-task-banner--dark .simplify-free-task-banner__lead {
+  color: #94a3b8;
+}
+
+.equation-free-task-banner--dark,
+.simplify-free-task-banner--dark {
+  background: #1e293b;
+  border-color: rgb(96 165 250 / 0.45);
+  color: #e2e8f0;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.2),
+    0 4px 16px rgb(0 0 0 / 0.35);
+}
+
+.equation-free-answer-banner,
+.simplify-free-answer-banner {
+  position: fixed;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 52;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  max-width: min(calc(100vw - 24px), 38rem);
+  padding: 0.42rem 1rem 0.42rem 1.15rem;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgb(147 197 253 / 0.85);
+  box-shadow:
+    0 1px 2px rgb(37 99 235 / 0.08),
+    0 4px 14px rgb(0 0 0 / 0.07);
+  pointer-events: auto;
+}
+
+.equation-free-answer-banner--dark,
+.simplify-free-answer-banner--dark {
+  background: #1e293b;
+  border-color: rgb(96 165 250 / 0.45);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.2),
+    0 4px 16px rgb(0 0 0 / 0.35);
+}
+
+.expand-free-answer-banner.equation-free-answer-banner {
+  max-width: min(calc(100vw - 24px), 56rem);
+  flex-wrap: nowrap;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.expand-free-answer-banner__lead {
+  flex-shrink: 0;
+  align-self: center;
+  font-style: normal;
+  font-family: system-ui, sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.expand-free-answer-banner .equation-free-answer-banner__equals {
+  flex-shrink: 0;
+}
+
+.expand-free-answer-banner__expr {
+  flex-shrink: 0;
+  font-size: clamp(1.2rem, 3.2vw, 1.85rem);
+  font-weight: 700;
+  font-style: italic;
+  font-family: var(--font-math-cooper);
+  color: var(--text);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.expand-free-answer-banner__expr .math-var {
+  font-weight: inherit;
+}
+
+.expand-free-answer-banner--dark .expand-free-answer-banner__expr {
+  color: #e2e8f0;
+}
+
+.expand-free-answer-banner__input.equation-free-answer-banner__input {
+  flex: 1 1 5rem;
+  min-width: 4rem;
+  max-width: min(16rem, 28vw);
+}
+
+.factor-free-answer-banner.equation-free-answer-banner {
+  max-width: min(calc(100vw - 24px), 56rem);
+  flex-wrap: nowrap;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.factor-free-answer-banner .equation-free-answer-banner__equals {
+  flex-shrink: 0;
+}
+
+.factor-free-answer-banner__poly {
+  flex-shrink: 0;
+  font-size: clamp(1.05rem, 2.8vw, 1.65rem);
+  font-weight: 700;
+  font-style: italic;
+  font-family: var(--font-math-cooper);
+  color: var(--text);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.factor-free-answer-banner__poly .math-var {
+  font-weight: inherit;
+}
+
+.factor-free-answer-banner--dark .factor-free-answer-banner__poly {
+  color: #e2e8f0;
+}
+
+.factor-free-answer-banner__paren {
+  flex-shrink: 0;
+  font-size: clamp(1.05rem, 2.8vw, 1.65rem);
+  font-weight: 700;
+  font-style: italic;
+  font-family: var(--font-math-cooper);
+  line-height: 1.2;
+}
+
+.factor-free-answer-banner--dark .factor-free-answer-banner__paren {
+  color: #e2e8f0;
+}
+
+.factor-free-answer-banner__bracket.factor-bracket-input {
+  flex: 0 1 5.5rem;
+  min-width: 3.25rem;
+  max-width: min(9.5rem, 22vw);
+   width: auto;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+}
+
+.equation-level-pick__kind {
+  margin-bottom: 0.75rem;
+}
+
+.equation-free-answer-banner__prefix {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  font-size: clamp(1.9rem, 5.2vw, 2.24rem);
+  font-weight: 300;
+  font-style: italic;
+  font-family: var(--font-math-cooper);
+  color: #1d4ed8;
+  line-height: 1.2;
+  user-select: none;
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__prefix {
+  color: #93c5fd;
+}
+
+.equation-free-answer-banner__equals {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__equals {
+  color: #94a3b8;
+}
+
+.equation-free-answer-banner__input {
+  flex: 1;
+  min-width: 6rem;
+  max-width: 14rem;
+  min-height: 2.85rem;
+  box-sizing: border-box;
+  padding: 0.28rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgb(147 197 253 / 0.65);
+  font-size: 1.35rem;
+  font-family: var(--font-math-cooper);
+  font-style: italic;
+  color: var(--text);
+  background: rgb(248 250 252 / 0.95);
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__input {
+  border-color: rgb(96 165 250 / 0.4);
+  background: rgb(30 41 59 / 0.85);
+  color: #e2e8f0;
+}
+
+.equation-free-answer-banner__calc {
+  flex-shrink: 0;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #64748b;
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(100 116 139 / 0.35);
+}
+
+.equation-free-answer-banner__calc:hover {
+  background: #475569;
+}
+
+.equation-free-answer-banner__calc:focus-visible {
+  outline: 2px solid rgb(100 116 139 / 0.65);
+  outline-offset: 2px;
+}
+
+.equation-free-answer-banner__calc--active {
+  background: #2563eb;
+  box-shadow: 0 1px 2px rgb(37 99 235 / 0.35);
+}
+
+.equation-free-answer-banner__calc--active:hover {
+  background: #1d4ed8;
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__calc {
+  background: #475569;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__calc:hover {
+  background: #64748b;
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__calc--active {
+  background: #3b82f6;
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__calc--active:hover {
+  background: #2563eb;
+}
+
+.equation-free-answer-banner__calc-icon {
+  display: block;
+}
+
+.equation-free-answer-banner__refresh {
+  flex-shrink: 0;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #ea580c;
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(234 88 12 / 0.35);
+}
+
+.equation-free-answer-banner__refresh:hover {
+  background: #c2410c;
+}
+
+.equation-free-answer-banner__refresh:focus-visible {
+  outline: 2px solid rgb(234 88 12 / 0.65);
+  outline-offset: 2px;
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__refresh {
+  background: #f97316;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.equation-free-answer-banner--dark .equation-free-answer-banner__refresh:hover {
+  background: #ea580c;
+}
+
+.equation-free-answer-banner__refresh-icon {
+  display: block;
+}
+
+/* Kalkulačka zjednodušování — vpravo dole; na užších displejích nad lištou kvůli překryvu. */
+.simplify-free-calculator-wrap {
+  position: fixed;
+  right: max(0.5rem, env(safe-area-inset-right, 0px));
+  bottom: max(4.2rem, calc(env(safe-area-inset-bottom, 0px) + 3.85rem));
+  z-index: 53;
+  width: min(calc(100vw - 20px), 16.4rem);
+}
+
+@media (min-width: 64rem) {
+  .simplify-free-calculator-wrap {
+    bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.simplify-calculator {
+  padding: 0.5rem 0.55rem 0.55rem;
+  border-radius: 14px;
+  background: #f2f2f2;
+  border: none;
+  box-shadow:
+    0 4px 14px rgb(0 0 0 / 0.1),
+    0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+.simplify-calculator--dark {
+  background: #2a2b36;
+  box-shadow:
+    0 4px 18px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.simplify-calculator__row {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.simplify-calculator__row:last-child {
+  margin-bottom: 0;
+}
+
+.simplify-calculator__row--tools {
+  margin-bottom: 0.4rem;
+}
+
+.simplify-calculator__key {
+  flex: 1;
+  min-height: 2.65rem;
+  border: none;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.12s ease;
+  color: #fff;
+}
+
+.simplify-calculator__key:hover {
+  opacity: 0.92;
+}
+
+.simplify-calculator__key--num {
+  background: #5c6b7a;
+}
+
+.simplify-calculator__key--op {
+  background: #cbd5e1;
+  color: #334155;
+  font-size: 1rem;
+}
+
+.simplify-calculator--dark .simplify-calculator__key--op {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.simplify-calculator__key--danger {
+  background: #ef4444;
+  font-size: 0.78rem;
+}
+
+.simplify-calculator__key--warn {
+  background: #f4a259;
+  font-size: 1.05rem;
+}
+
+.simplify-calculator__key--span3 {
+  flex: 3;
+}
+
+.simplify-calculator__key .math-var {
+  font-size: inherit;
+  font-style: italic;
+}
+
+.simplify-calculator__row .simplify-calculator__key:last-child.simplify-calculator__key--op {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.simplify-calculator__row
+  .simplify-calculator__key:last-child.simplify-calculator__key--op.simplify-calculator__key--poly-var {
+  font-family: var(--font-math-cooper);
+  font-size: 1.5rem;
+  font-weight: 300;
+  font-style: italic;
+}
+
+.equation-level-pick-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgb(0 0 0 / 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.equation-level-pick-backdrop--dark {
+  background: rgb(0 0 0 / 0.55);
+}
+
+.equation-level-pick {
+  width: 100%;
+  max-width: 20rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.18);
+}
+
+.equation-level-pick-backdrop--dark .equation-level-pick {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.equation-level-pick__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.equation-level-pick__hint {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.equation-level-pick-backdrop--dark .equation-level-pick__hint {
+  color: #94a3b8;
+}
+
+.equation-level-pick__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.equation-level-pick__btn {
+  width: 100%;
+}
+
+.equation-level-pick__cancel {
+  width: 100%;
+  margin-top: 0.65rem;
 }
 
 .geo-topbar__eq-icon {
@@ -2122,12 +2952,23 @@ body {
   background: transparent;
 }
 
+/* Vyplní výšku viewportu ve sloupci; posun je uvnitř přes .free-camera. */
+.workspace.workspace--free-outer {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+}
+
 .workspace--free-outer--pan-tool {
   cursor: grab;
 }
 
 .workspace--free-outer--pan-tool:active {
   cursor: grabbing;
+}
+
+.workspace--free-outer--erase-tool {
+  cursor: crosshair;
 }
 
 .workspace--free-inner {
@@ -2161,6 +3002,52 @@ body {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 0 0 1px rgba(56, 189, 248, 0.25);
+}
+
+/* Přichycení hran — zvýraznění cílové hrany při tažení. */
+.free-edge-snap-guide {
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.55),
+    0 0 10px rgb(37 99 235 / 0.45);
+}
+
+.free-edge-snap-guide--v {
+  background: linear-gradient(
+    180deg,
+    rgb(37 99 235 / 0.95),
+    rgb(29 78 216 / 0.95)
+  );
+}
+
+.free-edge-snap-guide--h {
+  background: linear-gradient(
+    90deg,
+    rgb(37 99 235 / 0.95),
+    rgb(29 78 216 / 0.95)
+  );
+}
+
+.app--free-dark .free-edge-snap-guide {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.2),
+    0 0 12px rgb(56 189 248 / 0.5);
+}
+
+.app--free-dark .free-edge-snap-guide--v {
+  background: linear-gradient(
+    180deg,
+    rgb(125 211 252 / 0.98),
+    rgb(56 189 248 / 0.95)
+  );
+}
+
+.app--free-dark .free-edge-snap-guide--h {
+  background: linear-gradient(
+    90deg,
+    rgb(125 211 252 / 0.98),
+    rgb(56 189 248 / 0.95)
+  );
 }
 
 .app--free-dark .bank-sidebar--free-tools {
@@ -2227,10 +3114,13 @@ body {
 }
 
 @media (max-width: 520px) {
-  .main-menu__grid {
-    grid-template-columns: 1fr;
-    max-width: 22rem;
-    margin: 0 auto;
+  .main-menu__masthead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .main-menu__tabs {
+    justify-content: flex-start;
   }
 }
 
@@ -2273,8 +3163,12 @@ body {
     min-height: 45vh;
   }
 
-  .main-menu {
+  .main-menu:not(.main-menu--geo) {
     padding: 1.25rem 1rem 2rem;
+  }
+
+  .main-menu__body {
+    padding: 1.1rem 1rem 2rem;
   }
 }
 

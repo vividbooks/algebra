@@ -1,7 +1,9 @@
 import {
   ALGEBRA_TILE_FRAME_INSET_STROKE_PX,
   ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX,
+  FREE_GRID_X1_SHORT_PX,
   TYPO_MINUS,
+  UNIT_PX,
 } from '../constants'
 import type { PlacedTile } from '../lib/tiles'
 import { tileFootprintForMode, type TileGeomMode } from '../lib/tiles'
@@ -69,7 +71,9 @@ export function TileView({
         ? minSide * 0.52
         : h * 0.28
   const strokeW = ALGEBRA_TILE_FRAME_INSET_STROKE_PX
-  const radius = Math.min(minSide * 0.16, 26)
+  /* Stejné zakřivení jako u x / 1 — u x² nešlapat z větší strany čtverce. */
+  const refShort = geometry === 'freeGrid' ? FREE_GRID_X1_SHORT_PX : UNIT_PX
+  const radius = Math.min(Math.min(minSide, refShort) * 0.16, 26)
   const shift = ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX
 
   return (
