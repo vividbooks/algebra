@@ -2827,7 +2827,7 @@ export default function App() {
       <div className="app app--fill main-menu main-menu--geo">
         <header className="main-menu__masthead">
           <h1 className="main-menu__brand">
-            Algebraické dlaždice, úlohy a cvičení
+            Algebraické dlaždice
           </h1>
           <nav
             className="main-menu__tabs"
