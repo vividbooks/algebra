@@ -576,7 +576,6 @@ export default function App() {
   const [factorCalculatorOpen, setFactorCalculatorOpen] = useState(false)
 
   const [expandKind, setExpandKind] = useState<ExpandKind>('monomial')
-  const [expandLevel, setExpandLevel] = useState<ExpandLevel>('basic')
   const [expandTask, setExpandTask] = useState<ExpandTask>(() =>
     generateExpandTask('monomial', 'basic')
   )
@@ -616,6 +615,18 @@ export default function App() {
     setDrag(null)
     setCheckFeedback(null)
     setSimplifyAnswer('')
+  }, [])
+
+  const enterExpandMode = useCallback((kind: ExpandKind, level: ExpandLevel) => {
+    setRoute('expand')
+    setExpandKind(kind)
+    setExpandTask(generateExpandTask(kind, level))
+    prevExpandTaskIdRef.current = null
+    setTiles([])
+    setSelectedTileIds([])
+    setDrag(null)
+    setCheckFeedback(null)
+    setExpandAnswer('')
   }, [])
 
   /** Pozice levého horního rohu průhledného náhledu při tahu ze zásobníku (viewport). */
@@ -1345,11 +1356,6 @@ export default function App() {
     setExpandAnswer('')
   }, [expandTask.id, route])
 
-  useEffect(() => {
-    if (route !== 'expand') return
-    setExpandTask(generateExpandTask(expandKind, expandLevel))
-  }, [route, expandKind, expandLevel])
-
   /**
    * Velikost výřezu workspace — jen okno + změna route.
    * ResizeObserver tady dělal smyčku se zoomem (každý zoom mění scrollWidth → measure → setState → sekání).
@@ -1509,12 +1515,13 @@ export default function App() {
   const freeEqBandLeft = useMemo(() => {
     if (!isFreeGeometryRoute(route)) return 0
     const G = FREE_GRID_CELL_PX
-    /* Střed podle plochy max(dlaždice, výřez) — ne podle innerW zvětšeného kvůli zoomu,
-     * jinak se při oddálení mění sloupec rovnítka. */
-    const wMid = Math.max(gw, viewSize.w)
-    const col = Math.floor(wMid / 2 / G) * G
-    return Math.min(Math.max(0, innerW - G), col)
-  }, [route, innerW, gw, viewSize.w])
+    /* Stejná šířka jako bílý „papír“ (.free-canvas-paper): max(dlaždice, výřez) + doplněk,
+     * ne jen max(dlaždice, výřez) — jinak je pruh = posunutý doleva oproti středu plochy. */
+    const paperW = innerW - FREE_CANVAS_PAN_ROOM_PX
+    if (paperW <= G) return 0
+    const left = Math.floor((paperW - G) / 2 / G) * G
+    return Math.min(Math.max(0, innerW - G), left)
+  }, [route, innerW])
   freeEqBandLeftRef.current = freeEqBandLeft
 
   const freeEqPartition = useMemo(() => {
@@ -2796,17 +2803,7 @@ export default function App() {
         tone: 2,
         title: 'Roznásobování',
         Icon: Expand,
-        onClick: () => {
-          setRoute('expand')
-          setExpandKind('monomial')
-          setExpandLevel('basic')
-          prevExpandTaskIdRef.current = null
-          setTiles([])
-          setSelectedTileIds([])
-          setDrag(null)
-          setCheckFeedback(null)
-          setExpandAnswer('')
-        },
+        onClick: () => enterExpandMode('monomial', 'basic'),
       },
       {
         tone: 3,
@@ -3765,7 +3762,7 @@ export default function App() {
                         type="button"
                         className="btn primary equation-level-pick__btn"
                         onClick={() => {
-                          setExpandLevel('basic')
+                          enterExpandMode(expandKind, 'basic')
                           setExpandLevelPickOpen(false)
                         }}
                       >
@@ -3775,7 +3772,7 @@ export default function App() {
                         type="button"
                         className="btn primary equation-level-pick__btn"
                         onClick={() => {
-                          setExpandLevel('advanced')
+                          enterExpandMode(expandKind, 'advanced')
                           setExpandLevelPickOpen(false)
                         }}
                       >
@@ -3785,7 +3782,7 @@ export default function App() {
                         type="button"
                         className="btn primary equation-level-pick__btn"
                         onClick={() => {
-                          setExpandLevel('master')
+                          enterExpandMode(expandKind, 'master')
                           setExpandLevelPickOpen(false)
                         }}
                       >
