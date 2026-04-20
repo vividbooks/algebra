@@ -4409,17 +4409,9 @@ export default function App() {
             <h2 className="bank-heading bank-heading--rail bank-heading--sr-only">
               Zásobník dlaždic (pravá strana)
             </h2>
-            <div
-              className="bank-rail-equation-right-spacer-top"
-              aria-hidden
-            />
             <div className="bank-grid bank-grid--rail bank-grid--equation-right">
               {renderFreeRailBankCells()}
             </div>
-            <div
-              className="bank-rail-equation-right-spacer-bottom"
-              aria-hidden
-            />
           </aside>
         ) : null}
       </div>

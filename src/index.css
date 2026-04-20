@@ -174,28 +174,17 @@ body {
 .bank-sidebar--equation-right.bank-sidebar--free-tools {
   left: auto;
   right: max(12px, env(safe-area-inset-right, 0px));
-}
-
-/*
- * Stejná svislá pozice dlaždic jako v levém railu: vlevo je nad mřížkou Zpět + nástroje
- * a pod ní guma + vyčistit — pravý panel má jen dlaždice, takže doplníme neviditelné
- * segmenty stejné výšky a prostřední sloupec necháme růst (flex) jako vlevo.
- */
-.bank-rail-equation-right-spacer-top {
-  flex-shrink: 0;
-  width: 38px;
-  height: 157px;
-}
-
-.bank-rail-equation-right-spacer-bottom {
-  flex-shrink: 0;
-  width: 38px;
-  /* Oddělovač + mezera + guma + mezera + vyčistit (nad tím je už gap z flexu). */
-  height: 95px;
+  /* Kompaktní pilulka jen kolem dlaždic — bez velké „hlavy“ nad x² kvůli zarovnání s levým
+   * (levý rail má Zpět + nástroje, pravý ne — svislé sladění obou zásobníků jinak nedává smysl). */
+  padding: 24px 5px 14px 5px;
+  box-sizing: border-box;
+  /* Výška jen podle zásobníku (dědí max-height z .bank-sidebar--free-tools). */
+  min-height: 0;
+  justify-content: flex-start;
 }
 
 .bank-sidebar--equation-right .bank-grid--equation-right {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   justify-content: flex-start;
 }
@@ -3293,6 +3282,10 @@ body {
   }
 
   .app__body--free-rail .workspace-scroll {
+    min-height: 0;
+  }
+
+  .bank-sidebar--equation-right.bank-sidebar--free-tools {
     min-height: 0;
   }
 
