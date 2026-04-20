@@ -36,6 +36,11 @@ export const FREE_BANK_PREVIEW_MAX_SIDE_PX = 72
 export const FREE_EDGE_SNAP_SCREEN_PX = 10
 
 /**
+ * Navíc k minimální šířce/výšce „papíru“ pracovní plochy (nad max(dlaždice, výřez okna)).
+ */
+export const FREE_WORK_SURFACE_PADDING_PX = 640
+
+/**
  * Logická rezerva šířky/výšky světa nad rámec dlaždic — kam až jde posouvat (figmovské „nekonečné“ plátno).
  */
 export const FREE_CANVAS_PAN_ROOM_PX = 3200

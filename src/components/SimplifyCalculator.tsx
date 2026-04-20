@@ -122,7 +122,7 @@ export function SimplifyCalculator({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => insert('\u00B7')}
         >
-          ×
+          {'\u00B7'}
         </button>
       </div>
       <div className="simplify-calculator__row">

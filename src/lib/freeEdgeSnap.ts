@@ -9,6 +9,8 @@ export type FreeEdgeSnapGuide =
   | { axis: 'y'; at: number; from: number; to: number }
 
 const MIN_PARALLEL_OVERLAP = 3
+/** Tolerance zarovnání hran (px) — u „jen se dotýkají“ je průnik 0. */
+const EDGE_TOUCH_EPS = 1
 
 function rectOf(tile: PlacedTile, x: number, y: number): FreeSnapRect {
   const { w, h } = tileFootprintForMode(tile.kind, tile.rot, 'freeGrid')
@@ -21,6 +23,50 @@ function yOverlap(a: FreeSnapRect, b: FreeSnapRect): number {
 
 function xOverlap(a: FreeSnapRect, b: FreeSnapRect): number {
   return Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
+}
+
+/** Svislé hrany vedle sebe (dlaždice v řádku) — pro zarovnání horních/dolních hran. */
+function verticalEdgesTouch(a: FreeSnapRect, b: FreeSnapRect): boolean {
+  return (
+    Math.abs(a.x + a.w - b.x) < EDGE_TOUCH_EPS ||
+    Math.abs(b.x + b.w - a.x) < EDGE_TOUCH_EPS
+  )
+}
+
+/** Vodorovné hrany nad sebou — pro zarovnání levého/pravého okraje. */
+function horizontalEdgesTouch(a: FreeSnapRect, b: FreeSnapRect): boolean {
+  return (
+    Math.abs(a.y + a.h - b.y) < EDGE_TOUCH_EPS ||
+    Math.abs(b.y + b.h - a.y) < EDGE_TOUCH_EPS
+  )
+}
+
+/** Pár lze přichytit (průnik plochy nebo dotek libovolné hrany). */
+function snapPairRelevant(M: FreeSnapRect, S: FreeSnapRect): boolean {
+  return (
+    xOverlap(M, S) >= MIN_PARALLEL_OVERLAP ||
+    yOverlap(M, S) >= MIN_PARALLEL_OVERLAP ||
+    verticalEdgesTouch(M, S) ||
+    horizontalEdgesTouch(M, S)
+  )
+}
+
+/** Rozsah pro vodící čáru v ose Y (svislá čára); u rohu bez průniku plochy krátký segment. */
+function guideSpanY(M: FreeSnapRect, S: FreeSnapRect): { from: number; to: number } {
+  const y0 = Math.max(M.y, S.y)
+  const y1 = Math.min(M.y + M.h, S.y + S.h)
+  if (y1 > y0) return { from: y0, to: y1 }
+  const y = Math.min(M.y + M.h, S.y + S.h)
+  return { from: y - 0.5, to: y + 0.5 }
+}
+
+/** Rozsah pro vodící čáru v ose X (vodorovná čára); u rohu bez průniku plochy krátký segment. */
+function guideSpanX(M: FreeSnapRect, S: FreeSnapRect): { from: number; to: number } {
+  const x0 = Math.max(M.x, S.x)
+  const x1 = Math.min(M.x + M.w, S.x + S.w)
+  if (x1 > x0) return { from: x0, to: x1 }
+  const x = Math.min(M.x + M.w, S.x + S.w)
+  return { from: x - 0.5, to: x + 0.5 }
 }
 
 function groupYSpan(moving: FreeSnapRect[]): { from: number; to: number } {
@@ -94,10 +140,9 @@ export function snapFreeMovingGroup(params: {
 
   for (const M of movingRects) {
     for (const S of staticRects) {
-      if (yOverlap(M, S) < MIN_PARALLEL_OVERLAP) continue
+      if (!snapPairRelevant(M, S)) continue
 
-      const y0 = Math.max(M.y, S.y)
-      const y1 = Math.min(M.y + M.h, S.y + S.h)
+      const { from: y0, to: y1 } = guideSpanY(M, S)
 
       considerX(S.x + S.w - M.x, { axis: 'x', at: S.x + S.w, from: y0, to: y1 })
       considerX(S.x - (M.x + M.w), { axis: 'x', at: S.x, from: y0, to: y1 })
@@ -113,10 +158,9 @@ export function snapFreeMovingGroup(params: {
 
   for (const M of movingRects) {
     for (const S of staticRects) {
-      if (xOverlap(M, S) < MIN_PARALLEL_OVERLAP) continue
+      if (!snapPairRelevant(M, S)) continue
 
-      const x0 = Math.max(M.x, S.x)
-      const x1 = Math.min(M.x + M.w, S.x + S.w)
+      const { from: x0, to: x1 } = guideSpanX(M, S)
 
       considerY(S.y + S.h - M.y, { axis: 'y', at: S.y + S.h, from: x0, to: x1 })
       considerY(S.y - (M.y + M.h), { axis: 'y', at: S.y, from: x0, to: x1 })

@@ -35,6 +35,8 @@
 }
 
 :root {
+  /* Cooper BT je v projektu jen jako Light Italic — při font-style: normal ho prohlížeč stejně použije, takže číslice vypadají kurzívou. Pro „čísla rovně“ použijte --font-math-upright; proměnná x zůstane kurzívou přes .math-var + Cooper. */
+  --font-math-upright: ui-serif, Georgia, 'Times New Roman', serif;
   --font-math-cooper: 'Cooper BT', ui-serif, Georgia, 'Times New Roman', serif;
   --font-fenomen: 'Fenomen Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bg: #f4f6fa;
@@ -167,6 +169,35 @@ body {
   cursor: default;
   pointer-events: auto;
   min-height: 0;
+}
+
+.bank-sidebar--equation-right.bank-sidebar--free-tools {
+  left: auto;
+  right: max(12px, env(safe-area-inset-right, 0px));
+}
+
+/*
+ * Stejná svislá pozice dlaždic jako v levém railu: vlevo je nad mřížkou Zpět + nástroje
+ * a pod ní guma + vyčistit — pravý panel má jen dlaždice, takže doplníme neviditelné
+ * segmenty stejné výšky a prostřední sloupec necháme růst (flex) jako vlevo.
+ */
+.bank-rail-equation-right-spacer-top {
+  flex-shrink: 0;
+  width: 38px;
+  height: 157px;
+}
+
+.bank-rail-equation-right-spacer-bottom {
+  flex-shrink: 0;
+  width: 38px;
+  /* Oddělovač + mezera + guma + mezera + vyčistit (nad tím je už gap z flexu). */
+  height: 95px;
+}
+
+.bank-sidebar--equation-right .bank-grid--equation-right {
+  flex: 1 1 auto;
+  min-height: 0;
+  justify-content: flex-start;
 }
 
 .bank-sidebar--free-tools .bank-rail__tools {
@@ -495,8 +526,8 @@ body {
   margin: 0 0 0.5rem;
   font-size: 2.16rem;
   font-weight: 300;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   color: var(--text);
   line-height: 1.45;
 }
@@ -513,10 +544,12 @@ body {
   white-space: nowrap;
 }
 
-/* Proměnná x ve výrazech (kurzíva jako v sazbě matematiky). */
+/* Proměnná x ve výrazech (kurzíva + Cooper; ostatní text dědí --font-math-upright z kontejneru). */
 .math-var {
   font-style: italic;
-  font-family: inherit;
+  font-family: var(--font-math-cooper);
+  /* Cooper Light Italic je oproti Georgia při stejném em vizuálně nižší — srovnat s číslicemi. */
+  font-size: 1.05em;
 }
 
 .factor-task-panel {
@@ -773,8 +806,8 @@ body {
   column-gap: 0.35em;
   font-size: 2.9rem;
   font-weight: 300;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   color: var(--text);
   width: 100%;
 }
@@ -800,9 +833,9 @@ body {
   grid-template-columns: 1fr auto 1fr;
   margin-top: 2.75rem;
   font-size: 2.9rem;
-  font-family: var(--font-math-cooper);
+  font-family: var(--font-math-upright);
   font-weight: 300;
-  font-style: italic;
+  font-style: normal;
   color: var(--text);
   width: 100%;
 }
@@ -908,8 +941,8 @@ body {
   align-items: center;
   justify-content: center;
   font-weight: 300;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   pointer-events: none;
   z-index: 1;
   transition: filter 0.15s ease;
@@ -932,11 +965,6 @@ body {
 
 .algebra-tile--drag {
   filter: drop-shadow(0 10px 26px rgb(0 0 0 / 0.28));
-}
-
-.algebra-tile--selected {
-  outline: 2px solid #7eb8ff;
-  outline-offset: 3px;
 }
 
 /* Přehrávání záznamu — nulový pár v kroku těsně před odstraněním. */
@@ -1057,13 +1085,13 @@ body {
   }
 }
 
-/* + pod dlaždicí při hover — nad sousedními dlaždicemi (inline z-index zůstává jinak silnější). */
-.algebra-tile:not(.algebra-tile--drag):hover {
+/* Ovladače u vybrané dlaždice — nad sousedními dlaždicemi. */
+.algebra-tile--selected:not(.algebra-tile--drag) {
   z-index: 45 !important;
 }
 
 /*
- * Neviditelná plocha pod / nad dlaždicí — drží :hover při přejezdu na ovladače.
+ * Neviditelná plocha pod / nad dlaždicí — drží hover při přejezdu na ovladače.
  * pointerdown se zastaví, aby se nespustilo tažení dlaždice z této zóny.
  */
 .algebra-tile__hover-bridge {
@@ -1073,6 +1101,28 @@ body {
   transform: translateX(-50%);
   width: 2.85rem;
   height: calc(6px + 1.85rem + 12px);
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.algebra-tile__hover-bridge-left {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(12px + 1.85rem + 6px);
+  height: 2.85rem;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.algebra-tile__hover-bridge-right {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(6px + 1.85rem + 12px);
+  height: 2.85rem;
   z-index: 1;
   pointer-events: auto;
 }
@@ -1187,33 +1237,14 @@ body {
   pointer-events: auto;
 }
 
-.free-selection-chrome:hover .algebra-tile__sign-toggle,
-.free-selection-chrome:focus-within .algebra-tile__sign-toggle {
+/* Skupinový výběr — přepínače viditelné po výběru (obal má pointer-events: none). */
+.free-selection-chrome .algebra-tile__sign-toggle,
+.free-selection-chrome .algebra-tile__duplicate {
   opacity: 1;
   pointer-events: auto;
 }
 
-.free-selection-chrome:hover .algebra-tile__duplicate,
-.free-selection-chrome:focus-within .algebra-tile__duplicate {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/*
- * Skupinové přepínače jsou v .free-selection-chrome s pointer-events: none na obalu,
- * takže kurzor „sedí“ na dlaždici pod nimi — :hover na chrome nevznikne. Zobrazit je i při hoveru na kterékoli vybrané dlaždici.
- */
-.workspace--free-inner:has(.algebra-tile--selected:not(.algebra-tile--drag):hover)
-  .free-selection-chrome
-  .algebra-tile__sign-toggle,
-.workspace--free-inner:has(.algebra-tile--selected:not(.algebra-tile--drag):hover)
-  .free-selection-chrome
-  .algebra-tile__duplicate {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.algebra-tile:not(.algebra-tile--drag):hover .algebra-tile__sign-toggle {
+.algebra-tile--selected:not(.algebra-tile--drag) .algebra-tile__sign-toggle {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1265,9 +1296,6 @@ body {
 
 .algebra-tile__duplicate {
   position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translate(-50%, 6px);
   z-index: 2;
   display: flex;
   align-items: center;
@@ -1292,14 +1320,56 @@ body {
     background 0.12s ease;
 }
 
-.algebra-tile:not(.algebra-tile--drag):hover .algebra-tile__duplicate {
+.algebra-tile__duplicate--bottom {
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 6px);
+}
+
+.algebra-tile__duplicate--left {
+  left: 0;
+  top: 50%;
+  transform: translate(calc(-100% - 6px), -50%);
+}
+
+.algebra-tile__duplicate--right {
+  left: 100%;
+  top: 50%;
+  transform: translate(6px, -50%);
+}
+
+.algebra-tile--selected:not(.algebra-tile--drag) .algebra-tile__duplicate {
   opacity: 1;
   pointer-events: auto;
 }
 
-.algebra-tile__duplicate:hover {
+.algebra-tile--neg .algebra-tile__duplicate {
+  border-color: rgb(190 18 60 / 0.45);
+  color: #be123c;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.12),
+    0 2px 8px rgb(190 18 60 / 0.22);
+}
+
+.algebra-tile__duplicate--bottom:hover {
   background: color-mix(in srgb, var(--primary) 12%, #fff);
   transform: translate(-50%, 5px) scale(1.06);
+}
+
+.algebra-tile__duplicate--left:hover {
+  background: color-mix(in srgb, var(--primary) 12%, #fff);
+  transform: translate(calc(-100% - 7px), -50%) scale(1.06);
+}
+
+.algebra-tile__duplicate--right:hover {
+  background: color-mix(in srgb, var(--primary) 12%, #fff);
+  transform: translate(7px, -50%) scale(1.06);
+}
+
+.algebra-tile--neg .algebra-tile__duplicate--bottom:hover,
+.algebra-tile--neg .algebra-tile__duplicate--left:hover,
+.algebra-tile--neg .algebra-tile__duplicate--right:hover {
+  background: color-mix(in srgb, #be123c 12%, #fff);
 }
 
 .algebra-tile__duplicate:focus-visible {
@@ -1307,6 +1377,10 @@ body {
   pointer-events: auto;
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+.algebra-tile--neg .algebra-tile__duplicate:focus-visible {
+  outline-color: #be123c;
 }
 
 .mode-tabs {
@@ -1371,9 +1445,9 @@ body {
   align-items: center;
   gap: 0.35rem 0.55rem;
   font-size: 2.1rem;
-  font-family: var(--font-math-cooper);
+  font-family: var(--font-math-upright);
   font-weight: 300;
-  font-style: italic;
+  font-style: normal;
 }
 
 .equation-x-row__prefix {
@@ -1398,9 +1472,9 @@ body {
 
 .simplify-exercise {
   font-size: 2.1rem;
-  font-family: var(--font-math-cooper);
+  font-family: var(--font-math-upright);
   font-weight: 300;
-  font-style: italic;
+  font-style: normal;
   margin-bottom: 0.65rem;
   line-height: 1.45;
 }
@@ -1904,13 +1978,24 @@ body {
 }
 
 .workspace-scroll--free-geo {
-  background-color: #ffffff;
+  /* Šedý okraj — „papír“ pracovní plochy je .free-canvas-paper uvnitř .free-camera. */
+  background-color: #e4e7ef;
   /* Figma-like: žádný scroll kontejneru — jen overflow skrytý, pan přes ruku. */
   overflow: hidden;
   overscroll-behavior: none;
 }
 
 .workspace-scroll--free-geo.workspace-scroll--free-geo-dark {
+  background-color: #111827;
+}
+
+/* Užitková plocha (bez rezervy pro pan) — nad šedým pozadím .workspace-scroll--free-geo. */
+.free-canvas-paper {
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.free-canvas-paper--dark {
   background-color: #1a1b26;
 }
 
@@ -1957,8 +2042,8 @@ body {
   color: var(--text);
   font-size: clamp(1.9rem, 5.2vw, 2.24rem);
   font-weight: 300;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   line-height: 1.35;
   letter-spacing: -0.02em;
   text-align: center;
@@ -1968,6 +2053,7 @@ body {
 
 .free-poly-expr .math-var {
   font-weight: inherit;
+  font-style: italic;
 }
 
 /* Barvy členů jako u dlaždic: záporné červené, kladné modré. */
@@ -2026,8 +2112,8 @@ body {
   pointer-events: none;
   font-size: clamp(3rem, 8.4vmin, 3.8rem);
   font-weight: 600;
-  font-family: var(--font-math-cooper);
-  font-style: italic;
+  font-family: var(--font-math-upright);
+  font-style: normal;
   color: #1e40af;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -2070,9 +2156,8 @@ body {
   color: #94a3b8;
 }
 
-/* Rovnice / zjednodušování na volném plátně — zadání nahoře (fixed nad výřezem). */
-.equation-free-task-banner,
-.simplify-free-task-banner {
+/* Rovnice na volném plátně — zadání nahoře (fixed nad výřezem). */
+.equation-free-task-banner {
   position: fixed;
   left: 50%;
   top: max(5.25rem, calc(env(safe-area-inset-top, 0px) + 4.5rem));
@@ -2089,32 +2174,15 @@ body {
   color: var(--text);
   font-size: clamp(1.85rem, 5vw, 2.2rem);
   font-weight: 300;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   line-height: 1.35;
   text-align: center;
   pointer-events: none;
   user-select: none;
 }
 
-.simplify-free-task-banner__lead {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-style: normal;
-  font-family: system-ui, sans-serif;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.15rem;
-}
-
-.simplify-free-task-banner--dark .simplify-free-task-banner__lead {
-  color: #94a3b8;
-}
-
-.equation-free-task-banner--dark,
-.simplify-free-task-banner--dark {
+.equation-free-task-banner--dark {
   background: #1e293b;
   border-color: rgb(96 165 250 / 0.45);
   color: #e2e8f0;
@@ -2155,82 +2223,152 @@ body {
     0 4px 16px rgb(0 0 0 / 0.35);
 }
 
+/* Rovnice / zjednodušování / rozšíření / rozklad — vyhodnocení nad odpovědním řádkem */
+.equation-free-answer-banner--answer-route {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.equation-free-answer-banner__main-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.equation-answer-eval {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.42rem 0.85rem 0.48rem;
+  border-radius: 12px;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.equation-answer-eval__title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.equation-answer-eval__smile {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.equation-answer-eval--success {
+  background: #e8f5e9;
+  border-color: #2e7d32;
+  color: #1b5e20;
+}
+
+.equation-answer-eval--fail {
+  background: #ffebee;
+  border-color: #c62828;
+  color: #b71c1c;
+}
+
+.equation-answer-eval--dark.equation-answer-eval--success {
+  background: rgb(20 83 45 / 0.35);
+  border-color: rgb(74 222 128 / 0.55);
+  color: #bbf7d0;
+}
+
+.equation-answer-eval--dark.equation-answer-eval--fail {
+  background: rgb(127 29 29 / 0.35);
+  border-color: rgb(248 113 113 / 0.45);
+  color: #fecaca;
+}
+
+.expand-free-answer-banner.equation-free-answer-banner--answer-route,
+.simplify-free-answer-banner.equation-free-answer-banner--answer-route {
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+.expand-free-answer-banner.equation-free-answer-banner--answer-route
+  .expand-free-answer-banner__main-row,
+.simplify-free-answer-banner.equation-free-answer-banner--answer-route
+  .simplify-free-answer-banner__main-row {
+  flex-wrap: nowrap;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  min-width: 0;
+}
+
+.expand-free-answer-banner .equation-free-answer-banner__equals,
+.simplify-free-answer-banner .equation-free-answer-banner__equals {
+  flex-shrink: 0;
+}
+
+.simplify-free-answer-banner__input.factor-bracket-input,
+.expand-free-answer-banner__input.factor-bracket-input {
+  flex: 1 1 8rem;
+  min-width: 5rem;
+  max-width: min(16rem, 32vw);
+  width: auto;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+}
+
+.factor-free-answer-banner.equation-free-answer-banner,
+.simplify-free-answer-banner.equation-free-answer-banner,
 .expand-free-answer-banner.equation-free-answer-banner {
   max-width: min(calc(100vw - 24px), 56rem);
+}
+
+.factor-free-answer-banner.equation-free-answer-banner--answer-route {
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+.factor-free-answer-banner.equation-free-answer-banner--answer-route
+  .factor-free-answer-banner__main-row {
   flex-wrap: nowrap;
   justify-content: center;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-}
-
-.expand-free-answer-banner__lead {
-  flex-shrink: 0;
-  align-self: center;
-  font-style: normal;
-  font-family: system-ui, sans-serif;
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-}
-
-.expand-free-answer-banner .equation-free-answer-banner__equals {
-  flex-shrink: 0;
-}
-
-.expand-free-answer-banner__expr {
-  flex-shrink: 0;
-  font-size: clamp(1.2rem, 3.2vw, 1.85rem);
-  font-weight: 700;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
-  color: var(--text);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.expand-free-answer-banner__expr .math-var {
-  font-weight: inherit;
-}
-
-.expand-free-answer-banner--dark .expand-free-answer-banner__expr {
-  color: #e2e8f0;
-}
-
-.expand-free-answer-banner__input.equation-free-answer-banner__input {
-  flex: 1 1 5rem;
-  min-width: 4rem;
-  max-width: min(16rem, 28vw);
-}
-
-.factor-free-answer-banner.equation-free-answer-banner {
-  max-width: min(calc(100vw - 24px), 56rem);
-  flex-wrap: nowrap;
-  justify-content: center;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  min-width: 0;
 }
 
 .factor-free-answer-banner .equation-free-answer-banner__equals {
   flex-shrink: 0;
 }
 
-.factor-free-answer-banner__poly {
+.factor-free-answer-banner__poly,
+.simplify-free-answer-banner__poly,
+.expand-free-answer-banner__poly {
   flex-shrink: 0;
   font-size: clamp(1.05rem, 2.8vw, 1.65rem);
   font-weight: 700;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   color: var(--text);
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.factor-free-answer-banner__poly .math-var {
+.factor-free-answer-banner__poly .math-var,
+.simplify-free-answer-banner__poly .math-var,
+.expand-free-answer-banner__poly .math-var {
   font-weight: inherit;
+  font-style: italic;
 }
 
-.factor-free-answer-banner--dark .factor-free-answer-banner__poly {
+.factor-free-answer-banner--dark .factor-free-answer-banner__poly,
+.simplify-free-answer-banner--dark .simplify-free-answer-banner__poly,
+.expand-free-answer-banner--dark .expand-free-answer-banner__poly {
   color: #e2e8f0;
 }
 
@@ -2238,8 +2376,8 @@ body {
   flex-shrink: 0;
   font-size: clamp(1.05rem, 2.8vw, 1.65rem);
   font-weight: 700;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   line-height: 1.2;
 }
 
@@ -2265,8 +2403,8 @@ body {
   gap: 0.15rem;
   font-size: clamp(1.9rem, 5.2vw, 2.24rem);
   font-weight: 300;
-  font-style: italic;
-  font-family: var(--font-math-cooper);
+  font-style: normal;
+  font-family: var(--font-math-upright);
   color: #1d4ed8;
   line-height: 1.2;
   user-select: none;
@@ -2295,8 +2433,8 @@ body {
   border-radius: 10px;
   border: 1px solid rgb(147 197 253 / 0.65);
   font-size: 1.35rem;
-  font-family: var(--font-math-cooper);
-  font-style: italic;
+  font-family: var(--font-math-upright);
+  font-style: normal;
   color: var(--text);
   background: rgb(248 250 252 / 0.95);
 }
@@ -2497,7 +2635,6 @@ body {
 }
 
 .simplify-calculator__key .math-var {
-  font-size: inherit;
   font-style: italic;
 }
 

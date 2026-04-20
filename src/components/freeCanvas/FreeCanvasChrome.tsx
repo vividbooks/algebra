@@ -75,7 +75,7 @@ type TopBarProps = {
   /** Rovnice — prostřední sloupec + rozdělený zápis. */
   equalsMode: boolean
   onEqualsModeChange: (v: boolean) => void
-  /** Vypnout tlačítko „=“ (režim Rovnice na volném plátně má vlastní zadání). */
+  /** Tlačítko „=“ jen u volného plátna a rovnic (ne u zjednodušování / roznásobování / rozkladu). */
   showEqualsButton?: boolean
 }
 

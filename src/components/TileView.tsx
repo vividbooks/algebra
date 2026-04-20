@@ -5,7 +5,11 @@ import {
   TYPO_MINUS,
   UNIT_PX,
 } from '../constants'
-import type { PlacedTile } from '../lib/tiles'
+import type {
+  DuplicateEdgeFlags,
+  DuplicateFromSide,
+  PlacedTile,
+} from '../lib/tiles'
 import { tileFootprintForMode, type TileGeomMode } from '../lib/tiles'
 import { Minus, Plus } from 'lucide-react'
 import { MathText } from './MathText'
@@ -24,16 +28,16 @@ interface TileViewProps {
   layout?: 'board' | 'static'
   /** Náhled ve zdroji — bez pointer událostí (nadřazený prvek bere drag) */
   nonInteractive?: boolean
-  /** Skrytý náhled (tažení řeší fixed ghost nad celou aplikací). */
-  concealed?: boolean
   /** Volné plátno — rozměry násobků mřížky (50 px), jinak klasická algebra. */
   geometry?: TileGeomMode
   onPointerDown: (e: React.PointerEvent) => void
   onPointerUp?: (e: React.PointerEvent) => void
   onDoubleClick: (e: React.MouseEvent) => void
   onContextMenu?: (e: React.MouseEvent) => void
-  /** Plocha — po najetí myší tlačítko + pod dlaždicí (kopie vedle podle volného místa). */
-  onDuplicate?: () => void
+  /** Plocha — kopie při + u zvolené strany zdrojové dlaždice. */
+  onDuplicate?: (side: DuplicateFromSide) => void
+  /** Kde zobrazit + v kolečku (strana skrytá, pokud na ni přiléhá jiná dlaždice). */
+  duplicatePlacement?: DuplicateEdgeFlags
   /** Plocha — přepnutí znaménka (jako kontextové menu / pravý klik). */
   onFlipSign?: () => void
   /** Přehrávání záznamu — nulový pár před odstraněním (slabá neprůhlednost + přeškrtnutí). */
@@ -46,22 +50,23 @@ export function TileView({
   dragging,
   layout = 'board',
   nonInteractive = false,
-  concealed = false,
   geometry = 'algebra',
   onPointerDown,
   onPointerUp,
   onDoubleClick,
   onContextMenu,
   onDuplicate,
+  duplicatePlacement,
   onFlipSign,
   playbackZeroPairDim = false,
 }: TileViewProps) {
   const { w, h } = tileFootprintForMode(tile.kind, tile.rot, geometry)
   const onBoard = layout === 'board'
-  const showHoverChrome =
+  const showSelectionChrome =
     onBoard &&
     !nonInteractive &&
-    !concealed &&
+    !dragging &&
+    selected &&
     (onDuplicate != null || onFlipSign != null)
   const minSide = Math.min(w, h)
   const fontSize =
@@ -75,10 +80,47 @@ export function TileView({
   const refShort = geometry === 'freeGrid' ? FREE_GRID_X1_SHORT_PX : UNIT_PX
   const radius = Math.min(Math.min(minSide, refShort) * 0.16, 26)
   const shift = ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX
+  const faceOpacity = playbackZeroPairDim ? 0.3 : dragging ? 0.5 : 1
+
+  const dupSides: DuplicateEdgeFlags =
+    onDuplicate != null
+      ? duplicatePlacement ?? {
+          left: true,
+          right: true,
+          bottom: true,
+        }
+      : { left: false, right: false, bottom: false }
+
+  const duplicateAria: Record<DuplicateFromSide, string> = {
+    left: 'Zkopírovat dlaždici vlevo od této',
+    right: 'Zkopírovat dlaždici vpravo od této',
+    bottom: 'Zkopírovat dlaždici pod touto',
+  }
+
+  const duplicateButton = (side: DuplicateFromSide) => (
+    <button
+      type="button"
+      className={`algebra-tile__duplicate algebra-tile__duplicate--${side}`}
+      aria-label={duplicateAria[side]}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+      }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onDuplicate?.(side)
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+    >
+      <Plus size={15} strokeWidth={2.6} aria-hidden />
+    </button>
+  )
 
   return (
     <div
-      className={`algebra-tile algebra-tile--${tile.kind}${tile.negative ? ' algebra-tile--neg' : ''}${tile.negative ? ' algebra-tile--pt-palette-neg' : ' algebra-tile--pt-palette-pos'}${selected ? ' algebra-tile--selected' : ''}${dragging ? ' algebra-tile--drag' : ''}${showHoverChrome ? ' algebra-tile--hover-chrome' : ''}${playbackZeroPairDim ? ' algebra-tile--playback-zero-pair' : ''}`}
+      className={`algebra-tile algebra-tile--${tile.kind}${tile.negative ? ' algebra-tile--neg' : ''}${tile.negative ? ' algebra-tile--pt-palette-neg' : ' algebra-tile--pt-palette-pos'}${selected ? ' algebra-tile--selected' : ''}${dragging ? ' algebra-tile--drag' : ''}${showSelectionChrome ? ' algebra-tile--selection-chrome' : ''}${playbackZeroPairDim ? ' algebra-tile--playback-zero-pair' : ''}`}
       style={{
         ['--at-stroke' as string]: `${strokeW}px`,
         ['--at-r' as string]: `${radius}px`,
@@ -90,7 +132,7 @@ export function TileView({
         width: w,
         height: h,
         boxSizing: 'border-box',
-        opacity: concealed ? 0 : 1,
+        opacity: faceOpacity,
         cursor: nonInteractive ? 'inherit' : 'grab',
         touchAction: nonInteractive ? 'auto' : 'none',
         userSelect: 'none',
@@ -102,7 +144,7 @@ export function TileView({
       onDoubleClick={onDoubleClick}
       onContextMenu={nonInteractive ? undefined : onContextMenu}
     >
-      {showHoverChrome && onFlipSign ? (
+      {showSelectionChrome && onFlipSign ? (
         <>
           <span
             className="algebra-tile__hover-bridge-top"
@@ -153,31 +195,38 @@ export function TileView({
           <MathText text={labelFor(tile.kind, tile.negative)} />
         </span>
       </span>
-      {showHoverChrome && onDuplicate ? (
+      {showSelectionChrome && onDuplicate ? (
         <>
-          <span
-            className="algebra-tile__hover-bridge"
-            aria-hidden
-            onPointerDown={(e) => e.stopPropagation()}
-          />
-          <button
-            type="button"
-            className="algebra-tile__duplicate"
-            aria-label="Zkopírovat dlaždici"
-            onPointerDown={(e) => {
-              e.stopPropagation()
-            }}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDuplicate()
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            }}
-          >
-            <Plus size={15} strokeWidth={2.6} aria-hidden />
-          </button>
+          {dupSides.bottom ? (
+            <>
+              <span
+                className="algebra-tile__hover-bridge"
+                aria-hidden
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+              {duplicateButton('bottom')}
+            </>
+          ) : null}
+          {dupSides.left ? (
+            <>
+              <span
+                className="algebra-tile__hover-bridge-left"
+                aria-hidden
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+              {duplicateButton('left')}
+            </>
+          ) : null}
+          {dupSides.right ? (
+            <>
+              <span
+                className="algebra-tile__hover-bridge-right"
+                aria-hidden
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+              {duplicateButton('right')}
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

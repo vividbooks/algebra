@@ -37,7 +37,8 @@ function parseOneSignedTerm(raw: string): { c: number; p: 0 | 1 | 2 } | null {
   return { c: sign * n, p: 0 }
 }
 
-export function parseQuadratic(input: string): QuadCoeffs | null {
+/** Normalizace a rozdělení na seznam signed termů — stejně jako `parseQuadratic`. */
+function getNormalizedSignedTerms(input: string): string[] | null {
   let s = input
     .trim()
     .replace(UNICODE_MINUS_LIKE_RE, '-')
@@ -52,6 +53,32 @@ export function parseQuadratic(input: string): QuadCoeffs | null {
 
   const rawTerms = s.match(/[+-][^+-]*/g)
   if (!rawTerms || rawTerms.length === 0) return null
+  return rawTerms
+}
+
+/**
+ * True, pokud výraz nemá dva samostatné sčítance stejného stupně (žádné nesloučené podobné členy).
+ * Např. `x²+x²` nebo `2x+3x` → false; `2x²+5x-1` → true.
+ */
+export function isQuadraticFullyExpandedSingleTerms(input: string): boolean {
+  const rawTerms = getNormalizedSignedTerms(input)
+  if (!rawTerms) return false
+  let n2 = 0
+  let n1 = 0
+  let n0 = 0
+  for (const t of rawTerms) {
+    const p = parseOneSignedTerm(t)
+    if (!p) return false
+    if (p.p === 2) n2++
+    else if (p.p === 1) n1++
+    else n0++
+  }
+  return n2 <= 1 && n1 <= 1 && n0 <= 1
+}
+
+export function parseQuadratic(input: string): QuadCoeffs | null {
+  const rawTerms = getNormalizedSignedTerms(input)
+  if (!rawTerms) return null
 
   let a = 0
   let b = 0

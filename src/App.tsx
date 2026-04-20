@@ -11,6 +11,7 @@ import {
   ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX,
   FREE_BANK_PREVIEW_MAX_SIDE_PX,
   FREE_CANVAS_PAN_ROOM_PX,
+  FREE_WORK_SURFACE_PADDING_PX,
   FREE_EDGE_SNAP_SCREEN_PX,
   FREE_GRID_CELL_PX,
   FREE_WHEEL_ZOOM_DELTA_CAP,
@@ -27,6 +28,7 @@ import {
 import { TileView } from './components/TileView'
 import {
   bankKey,
+  duplicateEdgesFree,
   partitionTilesByEqualsColumn,
   hasOverlap,
   tilesAreZeroPairOverlapping,
@@ -38,6 +40,7 @@ import {
   tileFootprintFreeGrid,
   type BankKey,
   type PlacedTile,
+  type DuplicateFromSide,
   type TileGeomMode,
   type TileKind,
 } from './lib/tiles'
@@ -54,7 +57,11 @@ import {
   parsePolynomialUpTo3,
   polyUpTo3Equal,
 } from './lib/parsePolyUpTo3'
-import { parseQuadratic, quadraticsEqual } from './lib/parseQuadratic'
+import {
+  isQuadraticFullyExpandedSingleTerms,
+  parseQuadratic,
+  quadraticsEqual,
+} from './lib/parseQuadratic'
 import {
   formatPolynomial,
   generateFactorTask,
@@ -135,6 +142,14 @@ function isFreeGeometryRoute(r: AppRoute): boolean {
   )
 }
 
+/** Vyhodnocení odpovědi u spodního panelu, ne v postranním zásobníku. */
+const ROUTES_WITH_INLINE_ANSWER_FEEDBACK: readonly AppRoute[] = [
+  'equation',
+  'simplify',
+  'expand',
+  'factor',
+]
+
 /** Název režimu v hlavním nadpisu cvičení: „Algebraické dlaždice – …“. */
 const APP_MODE_HEADING: Record<Exclude<AppRoute, 'menu'>, string> = {
   factor: 'Rozklad na součin',
@@ -214,34 +229,35 @@ function freeSnapThresholdInner(zoom: number): number {
   return Math.max(2, FREE_EDGE_SNAP_SCREEN_PX / Math.max(zoom, 0.001))
 }
 
-/** Levá / pravá strana rovnice podle středu dlaždice — jako `partitionTilesByEqualsColumn`. */
-function freeTileEquationSide(
-  x: number,
-  kind: TileKind,
-  rot: 0 | 1,
-  eqBandLeft: number
-): 'left' | 'right' {
-  const { w } = tileFootprintForMode(kind, rot, 'freeGrid')
-  const mid = eqBandLeft + FREE_GRID_CELL_PX / 2
-  return x + w / 2 < mid ? 'left' : 'right'
-}
-
 const LASSO_MIN_DRAG_PX = 8
+/** Tah dlaždice začne až po pohybu — jinak první klik zablokuje dvojklik (otočení x). */
+const TILE_DRAG_START_THRESHOLD_PX = 5
 
 function tryPlaceDuplicate(
   source: PlacedTile,
   all: PlacedTile[],
-  isFree: boolean
+  isFree: boolean,
+  preferredSide?: DuplicateFromSide
 ): PlacedTile | null {
   const geom: TileGeomMode = isFree ? 'freeGrid' : 'algebra'
   const { w, h } = tileFootprintForMode(source.kind, source.rot, geom)
-  const rawCandidates: [number, number][] = []
   const x0 = source.x
   const y0 = source.y
-  for (let dy = 1; dy <= 28; dy++) rawCandidates.push([x0, y0 + dy * h])
+  const seen = new Set<string>()
+  const rawCandidates: [number, number][] = []
+  const pushUnique = (x: number, y: number) => {
+    const k = `${x},${y}`
+    if (seen.has(k)) return
+    seen.add(k)
+    rawCandidates.push([x, y])
+  }
+  if (preferredSide === 'left') pushUnique(x0 - w, y0)
+  else if (preferredSide === 'right') pushUnique(x0 + w, y0)
+  else if (preferredSide === 'bottom') pushUnique(x0, y0 + h)
+  for (let dy = 1; dy <= 28; dy++) pushUnique(x0, y0 + dy * h)
   for (let dx = 1; dx <= 28; dx++) {
-    rawCandidates.push([x0 + dx * w, y0])
-    rawCandidates.push([x0 - dx * w, y0])
+    pushUnique(x0 + dx * w, y0)
+    pushUnique(x0 - dx * w, y0)
   }
   const tryAt = (rawX: number, rawY: number): PlacedTile | null => {
     const xClamped = boardClamp(rawX)
@@ -377,10 +393,6 @@ function freeInnerPointerToGridTopLeft(
   }
 }
 
-function freeInnerGridHighlightSize(tileW: number, tileH: number) {
-  return { w: tileW, h: tileH }
-}
-
 /** Hodnoty ze vstupů – trim, Unicode minus, desetinná čárka. */
 function parseFactorNumber(raw: string): number {
   const t = raw
@@ -402,7 +414,7 @@ function ControlsHelpPanel({ route }: { route: AppRoute }) {
           Dlaždici na ploše přesuňte přetažením. Vrátíte ji do zásobníku tak, že ji přetáhnete
           nad levý panel a pustíte tam.
         </li>
-        <li>Kliknutím dlaždici vyberete (modrý obrys).</li>
+        <li>Kliknutím dlaždici vyberete a zobrazí se ovladače znaménka a kopírování.</li>
         <li>
           Pravým tlačítkem přepínáte znaménko. Překryjí-li se kladná a záporná stejného tvaru
           ve stejném místě, vznikne nulový pár a dlaždice zmizí.
@@ -470,8 +482,8 @@ function ControlsHelpPanel({ route }: { route: AppRoute }) {
           <h3 className="controls-help__h">Zjednodušování</h3>
           <ul className="controls-help__list">
             <li>
-              Stejné volné plátno jako u rovnic — zadání nahoře, výsledek a kalkulačka dole;
-              můžete přidat režim „=“ v horní liště.
+              Stejné volné plátno jako u rovnic — zadání a pole odpovědi jsou dole v jedné řádce
+              jako u rozkladu na součin.
             </li>
             <li>
               Zelené tlačítko s fajfkou <strong>zkontroluje</strong> váš polynom; oranžové obnovení
@@ -508,9 +520,8 @@ function ControlsHelpPanel({ route }: { route: AppRoute }) {
           <h3 className="controls-help__h">Roznásobování</h3>
           <ul className="controls-help__list">
             <li>
-              Volné plátno a zásobník jako u zjednodušování; nahoře se nezobrazuje součet z
-              dlaždic — jen zadání úlohy dole u pole odpovědi. Kalkulačku otevřete modrým
-              tlačítkem vedle fajfky.
+              Volné plátno a zásobník jako u zjednodušování; zadání a výsledek jsou dole v jedné
+              řádce jako u rozkladu na součin. Kalkulačku otevřete modrým tlačítkem vedle fajfky.
             </li>
             <li>
               Zelené tlačítko s fajfkou <strong>zkontroluje</strong> váš zápis vůči úloze (polynom až
@@ -612,12 +623,6 @@ export default function App() {
     x: number
     y: number
   } | null>(null)
-  /** Fixed náhled při tahu dlaždice z plochy — viditelný i nad zásobníkem (overflow scroll ji jinak ořezává). */
-  const [tileGhostPos, setTileGhostPos] = useState<{
-    x: number
-    y: number
-  } | null>(null)
-
   const [tiles, setTiles] = useState<PlacedTile[]>([])
   const [selectedTileIds, setSelectedTileIds] = useState<string[]>([])
   const [lassoPreview, setLassoPreview] = useState<{
@@ -736,6 +741,7 @@ export default function App() {
   const freeRecordingStepsRef = useRef<FreeRecordingStep[]>([])
   /** Globální posluchače tahu — musí být připojené synchronně v pointerdown, jinak rychlé puštění nestihne useEffect. */
   const dragSessionCleanupRef = useRef<(() => void) | null>(null)
+  const tileDragArmCleanupRef = useRef<(() => void) | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const factorInput1Ref = useRef<HTMLInputElement>(null)
   const factorInput2Ref = useRef<HTMLInputElement>(null)
@@ -1390,10 +1396,14 @@ export default function App() {
    */
   const innerW =
     Math.max(gw, viewSize.w) +
-    (isFreeGeometry ? FREE_CANVAS_PAN_ROOM_PX : 0)
+    (isFreeGeometry
+      ? FREE_WORK_SURFACE_PADDING_PX + FREE_CANVAS_PAN_ROOM_PX
+      : 0)
   const innerH =
     Math.max(ghTiles, viewSize.h) +
-    (isFreeGeometry ? FREE_CANVAS_PAN_ROOM_PX : 0)
+    (isFreeGeometry
+      ? FREE_WORK_SURFACE_PADDING_PX + FREE_CANVAS_PAN_ROOM_PX
+      : 0)
   const innerWRef = useRef(innerW)
   const innerHRef = useRef(innerH)
   innerWRef.current = innerW
@@ -1678,16 +1688,17 @@ export default function App() {
   )
 
   const duplicatePlacedTile = useCallback(
-    (source: PlacedTile) => {
+    (source: PlacedTile, side: DuplicateFromSide) => {
       if (drag) return
       const r = routeRef.current
       if (r === 'menu') return
       const isFree = isFreeGeometryRoute(r)
       setTiles((prev) => {
-        const draft = tryPlaceDuplicate(source, prev, isFree)
+        const draft = tryPlaceDuplicate(source, prev, isFree, side)
         if (!draft) return prev
         const next = [...prev, draft]
         recordFreeTilesMutation(prev, next)
+        queueMicrotask(() => setSelectedTileIds([draft.id]))
         return next
       })
     },
@@ -1732,12 +1743,6 @@ export default function App() {
   }, [drag])
 
   useEffect(() => {
-    if (!drag || drag.kind !== 'tile') {
-      setTileGhostPos(null)
-    }
-  }, [drag])
-
-  useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     if (drag?.kind === 'tile') {
@@ -1752,6 +1757,8 @@ export default function App() {
     return () => {
       dragSessionCleanupRef.current?.()
       dragSessionCleanupRef.current = null
+      tileDragArmCleanupRef.current?.()
+      tileDragArmCleanupRef.current = null
       freePanCleanupRef.current?.()
       freePanCleanupRef.current = null
       freeLassoCleanupRef.current?.()
@@ -1799,33 +1806,7 @@ export default function App() {
                   : t
               )
 
-            const eqLeft = freeEqBandLeftRef.current
-            const stage =
-              freeEqualsModeRef.current
-                ? prev.map((tile) => {
-                    if (!groupSet.has(tile.id)) return tile
-                    const orig = active.memberOrigins[tile.id]
-                    if (!orig) return tile
-                    const before = freeTileEquationSide(
-                      orig.gx,
-                      tile.kind,
-                      tile.rot,
-                      eqLeft
-                    )
-                    const after = freeTileEquationSide(
-                      tile.x,
-                      tile.kind,
-                      tile.rot,
-                      eqLeft
-                    )
-                    if (before !== after) {
-                      return { ...tile, negative: !tile.negative }
-                    }
-                    return tile
-                  })
-                : prev
-
-            const working = eliminateAllZeroPairs(stage, 'freeGrid')
+            const working = eliminateAllZeroPairs(prev, 'freeGrid')
             if (hasOverlap(working, 'freeGrid')) {
               const rev = restoreGroup()
               if (tilesStateEqual(prev, rev)) return prev
@@ -1892,24 +1873,7 @@ export default function App() {
             x: boardClamp(t.x),
             y: boardClamp(t.y),
           }
-          let toPlace = settled
-          if (isFreeGeometryRoute(rNow) && freeEqualsModeRef.current) {
-            const before = freeTileEquationSide(
-              originGx,
-              t.kind,
-              t.rot,
-              freeEqBandLeftRef.current
-            )
-            const after = freeTileEquationSide(
-              settled.x,
-              settled.kind,
-              settled.rot,
-              freeEqBandLeftRef.current
-            )
-            if (before !== after) {
-              toPlace = { ...settled, negative: !settled.negative }
-            }
-          }
+          const toPlace = settled
           if (overlapsOthers([...others, toPlace], toPlace, geom)) {
             const next = prev.map((p) =>
               p.id === dragId ? { ...p, x: originGx, y: originGy } : p
@@ -1936,16 +1900,20 @@ export default function App() {
         const { w, h } = active
 
         if (isFreeGeometryRoute(rNow)) {
-          const pill = outer.ownerDocument.querySelector(
-            '.bank-sidebar--free-tools'
-          )
-          const pr = pill?.getBoundingClientRect()
-          const overPill =
-            !!pr &&
-            cx >= pr.left &&
-            cx <= pr.right &&
-            cy >= pr.top &&
-            cy <= pr.bottom
+          let overPill = false
+          outer.ownerDocument
+            .querySelectorAll('.bank-sidebar--free-tools')
+            .forEach((pill) => {
+              const pr = pill.getBoundingClientRect()
+              if (
+                cx >= pr.left &&
+                cx <= pr.right &&
+                cy >= pr.top &&
+                cy <= pr.bottom
+              ) {
+                overPill = true
+              }
+            })
           const releaseOnBankChrome =
             overPill && Boolean(hit?.closest(FREE_BANK_CHROME_SEL))
           if (insideOuter && !releaseOnBankChrome) {
@@ -2011,7 +1979,6 @@ export default function App() {
         innerWRef.current,
         innerHRef.current
       )
-      const { w: hw, h: hh } = freeInnerGridHighlightSize(tileW, tileH)
       const { kind, negative } = parseBankKey(key)
       const stub: PlacedTile = {
         id: '__bank_preview__',
@@ -2028,12 +1995,7 @@ export default function App() {
         innerH: innerHRef.current,
         threshold: freeSnapThresholdInner(freeZoomRef.current),
       })
-      setFreeGridDropPreview({
-        x: boardClamp(sx + snapped.dx),
-        y: boardClamp(sy + snapped.dy),
-        w: hw,
-        h: hh,
-      })
+      setFreeGridDropPreview(null)
       setFreeEdgeSnapGuides(snapped.guides)
     },
     []
@@ -2056,28 +2018,11 @@ export default function App() {
         }
         const memberKeys = Object.keys(d.memberOrigins)
         const isGroupDrag = memberKeys.length > 1
-        if (!isGroupDrag) {
-          setTileGhostPos({
-            x: ev.clientX - d.grabOffX,
-            y: ev.clientY - d.grabOffY,
-          })
-        }
         const z = isFreeGeometryRoute(routeRef.current)
           ? freeZoomRef.current
           : 1
         const leaderO = d.memberOrigins[d.id]
         if (!leaderO) return
-        const tLive = tilesRef.current.find((x) => x.id === d.id)
-        const freeG = isFreeGeometryRoute(routeRef.current)
-        const { w: tw, h: th } = tLive
-          ? tileFootprintForMode(
-              tLive.kind,
-              tLive.rot,
-              freeG ? 'freeGrid' : 'algebra'
-            )
-          : freeG
-            ? tileFootprintFreeGrid('x2', 0)
-            : { w: X_PX, h: X_PX }
         if (isFreeGeometryRoute(routeRef.current)) {
           const innerEl = freeBoardInnerRef.current
           let rawNx = leaderO.gx + (ev.clientX - d.startPx) / z
@@ -2129,28 +2074,6 @@ export default function App() {
           }).filter((u): u is { id: string; x: number; y: number } => u !== null)
           moveTilesLiveBatch(updates)
           setFreeEdgeSnapGuides(snap.guides)
-          let minX = Infinity
-          let minY = Infinity
-          let maxR = -Infinity
-          let maxB = -Infinity
-          for (const u of updates) {
-            const t = tilesRef.current.find((x) => x.id === u.id)
-            const { w: fw, h: fh } = t
-              ? tileFootprintForMode(t.kind, t.rot, 'freeGrid')
-              : { w: tw, h: th }
-            minX = Math.min(minX, u.x)
-            minY = Math.min(minY, u.y)
-            maxR = Math.max(maxR, u.x + fw)
-            maxB = Math.max(maxB, u.y + fh)
-          }
-          if (minX !== Infinity) {
-            setFreeGridDropPreview({
-              x: minX,
-              y: minY,
-              w: maxR - minX,
-              h: maxB - minY,
-            })
-          }
         } else {
           const nx = leaderO.gx + (ev.clientX - d.startPx) / z
           const ny = leaderO.gy + (ev.clientY - d.startPy) / z
@@ -2194,6 +2117,48 @@ export default function App() {
     [handleGlobalPointerUp, moveTileTo, moveTilesLiveBatch, updateFreeGridPreview]
   )
 
+  const armTileDragSession = useCallback(
+    (d: DragTile, pointerId: number, clientX: number, clientY: number) => {
+      tileDragArmCleanupRef.current?.()
+      const startPx = clientX
+      const startPy = clientY
+      let started = false
+      const armRemove = () => {
+        window.removeEventListener('pointermove', onArmMove)
+        window.removeEventListener('pointerup', onArmUp, true)
+        window.removeEventListener('pointercancel', onArmUp, true)
+        tileDragArmCleanupRef.current = null
+      }
+      const beginDrag = () => {
+        if (started) return
+        started = true
+        armRemove()
+        setDrag(d)
+        attachGlobalDragListeners(d, pointerId)
+        if (isFreeGeometryRoute(routeRef.current)) {
+          setFreeEdgeSnapGuides([])
+          setFreeGridDropPreview(null)
+        }
+      }
+      const onArmMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return
+        const dist = Math.hypot(ev.clientX - startPx, ev.clientY - startPy)
+        if (dist >= TILE_DRAG_START_THRESHOLD_PX) {
+          beginDrag()
+        }
+      }
+      const onArmUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return
+        armRemove()
+      }
+      tileDragArmCleanupRef.current = armRemove
+      window.addEventListener('pointermove', onArmMove)
+      window.addEventListener('pointerup', onArmUp, true)
+      window.addEventListener('pointercancel', onArmUp, true)
+    },
+    [attachGlobalDragListeners]
+  )
+
   const onBankPointerDown = (key: BankKey, e: React.PointerEvent) => {
     if (e.button !== 0) return
     e.preventDefault()
@@ -2223,6 +2188,99 @@ export default function App() {
       updateFreeGridPreview(e.clientX, e.clientY, key, w, h)
     }
   }
+
+  const renderFreeRailBankCells = (): ReactNode =>
+    SOURCE_META.map(({ kind, negative, caption }) => {
+      const key = bankKey(kind, negative)
+      const template: PlacedTile = {
+        id: `src-${key}`,
+        kind,
+        negative,
+        rot: 0,
+        x: 0,
+        y: 0,
+      }
+      const freeFoot = tileFootprintFreeGrid(kind, 0)
+      const railUnderhangPx =
+        ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX * FREE_BANK_RAIL_SCALE
+      const preview = (
+        <TileView
+          tile={template}
+          layout="static"
+          selected={false}
+          dragging={false}
+          nonInteractive
+          geometry="freeGrid"
+          onPointerDown={() => {}}
+          onDoubleClick={() => {}}
+        />
+      )
+      return (
+        <div key={key} className="bank-cell">
+          <div
+            className="bank-cell__drop bank-cell__drop--free-rail"
+            style={{
+              width: Math.round(freeFoot.w * FREE_BANK_RAIL_SCALE),
+              height: Math.round(
+                freeFoot.h * FREE_BANK_RAIL_SCALE + railUnderhangPx
+              ),
+            }}
+            onPointerDown={(e) => onBankPointerDown(key, e)}
+            title={caption}
+            aria-label={`Přetáhnout dlaždici ${caption}`}
+          >
+            <div
+              className="bank-cell__free-rail-inner"
+              style={{
+                width: freeFoot.w,
+                height: freeFoot.h,
+                transform: `scale(${FREE_BANK_RAIL_SCALE})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              {preview}
+            </div>
+          </div>
+        </div>
+      )
+    })
+
+  const renderAlgebraBankCells = (): ReactNode =>
+    SOURCE_META.map(({ kind, negative, caption }) => {
+      const key = bankKey(kind, negative)
+      const template: PlacedTile = {
+        id: `src-${key}`,
+        kind,
+        negative,
+        rot: 0,
+        x: 0,
+        y: 0,
+      }
+      const preview = (
+        <TileView
+          tile={template}
+          layout="static"
+          selected={false}
+          dragging={false}
+          nonInteractive
+          geometry="algebra"
+          onPointerDown={() => {}}
+          onDoubleClick={() => {}}
+        />
+      )
+      return (
+        <div key={key} className="bank-cell">
+          <div
+            className="bank-cell__drop"
+            onPointerDown={(e) => onBankPointerDown(key, e)}
+            title={caption}
+            aria-label={`Přetáhnout dlaždici ${caption}`}
+          >
+            {preview}
+          </div>
+        </div>
+      )
+    })
 
   const eraseFreeTile = useCallback(
     (tile: PlacedTile) => {
@@ -2301,12 +2359,6 @@ export default function App() {
 
     if (members.length <= 1) {
       setSelectedTileIds([tile.id])
-      setTileGhostPos({
-        x: e.clientX - grabOffX,
-        y: e.clientY - grabOffY,
-      })
-    } else {
-      setTileGhostPos(null)
     }
 
     const d: DragTile = {
@@ -2318,40 +2370,7 @@ export default function App() {
       grabOffX,
       grabOffY,
     }
-    setDrag(d)
-    attachGlobalDragListeners(d, e.pointerId)
-    if (isFreeGeometryRoute(route)) {
-      setFreeEdgeSnapGuides([])
-      if (members.length <= 1) {
-        const { w, h } = tileFootprintForMode(tile.kind, tile.rot, 'freeGrid')
-        const sx = boardClamp(tile.x)
-        const sy = boardClamp(tile.y)
-        const { w: hw, h: hh } = freeInnerGridHighlightSize(w, h)
-        setFreeGridDropPreview({ x: sx, y: sy, w: hw, h: hh })
-      } else {
-        let minX = Infinity
-        let minY = Infinity
-        let maxR = -Infinity
-        let maxB = -Infinity
-        for (const id of members) {
-          const t = tiles.find((x) => x.id === id)
-          if (!t) continue
-          const { w, h } = tileFootprintForMode(t.kind, t.rot, 'freeGrid')
-          minX = Math.min(minX, t.x)
-          minY = Math.min(minY, t.y)
-          maxR = Math.max(maxR, t.x + w)
-          maxB = Math.max(maxB, t.y + h)
-        }
-        if (minX !== Infinity) {
-          setFreeGridDropPreview({
-            x: minX,
-            y: minY,
-            w: maxR - minX,
-            h: maxB - minY,
-          })
-        }
-      }
-    }
+    armTileDragSession(d, e.pointerId, e.clientX, e.clientY)
   }
 
   const onTilePointerUp = (_e: React.PointerEvent) => {}
@@ -2444,9 +2463,13 @@ export default function App() {
     })
   }
 
-  const onBoardClick = () => {
+  const onBoardClick = (e: React.MouseEvent) => {
     if (suppressNextBoardClearRef.current) {
       suppressNextBoardClearRef.current = false
+      return
+    }
+    const t = e.target as HTMLElement | null
+    if (t?.closest('.algebra-tile') || t?.closest('.free-selection-chrome')) {
       return
     }
     setSelectedTileIds([])
@@ -2632,6 +2655,10 @@ export default function App() {
       setCheckFeedback('fail')
       return
     }
+    if (!isQuadraticFullyExpandedSingleTerms(simplifyAnswer)) {
+      setCheckFeedback('fail')
+      return
+    }
     const expected = {
       a: simplifyTask.a,
       b: simplifyTask.b,
@@ -2676,6 +2703,36 @@ export default function App() {
     }
   }, [equationAnswer, linearTask])
 
+  const renderInlineAnswerFeedback = () => {
+    if (!checkFeedback) return null
+    return (
+      <div
+        role="status"
+        className={`equation-answer-eval${
+          checkFeedback === 'success'
+            ? ' equation-answer-eval--success'
+            : ' equation-answer-eval--fail'
+        }${freeDark ? ' equation-answer-eval--dark' : ''}`}
+      >
+        {checkFeedback === 'success' ? (
+          <>
+            <span className="equation-answer-eval__title">Správně</span>
+            <span className="equation-answer-eval__smile" aria-hidden>
+              :)
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="equation-answer-eval__title">Bohužel</span>
+            <span className="equation-answer-eval__smile" aria-hidden>
+              :(
+            </span>
+          </>
+        )}
+      </div>
+    )
+  }
+
   const checkFactorization = () => {
     if (factorExpr1.trim() === '' || factorExpr2.trim() === '') {
       setCheckFeedback('fail')
@@ -2707,11 +2764,6 @@ export default function App() {
   }
 
   const polyDisplay = formatPolynomial(task)
-
-  const tileDragGhostTile =
-    drag?.kind === 'tile'
-      ? (tiles.find((x) => x.id === drag.id) ?? null)
-      : null
 
   if (route === 'menu') {
     const enterFreeCanvas = () => {
@@ -3015,14 +3067,15 @@ export default function App() {
             </button>
           )}
 
-          {checkFeedback && (
+          {checkFeedback &&
+          !ROUTES_WITH_INLINE_ANSWER_FEEDBACK.includes(route) ? (
             <p
               className={`feedback feedback--sidebar${checkFeedback === 'success' ? ' feedback--success' : ' feedback--fail'}`}
               role="status"
             >
               {checkFeedback === 'success' ? 'Správně :)' : 'Bohužel :('}
             </p>
-          )}
+          ) : null}
           <h2
             className={`bank-heading${isFreeGeometry ? ' bank-heading--rail bank-heading--sr-only' : ''}`}
           >
@@ -3031,73 +3084,9 @@ export default function App() {
           <div
             className={`bank-grid${isFreeGeometry ? ' bank-grid--rail' : ''}`}
           >
-            {SOURCE_META.map(({ kind, negative, caption }) => {
-              const key = bankKey(kind, negative)
-              const template: PlacedTile = {
-                id: `src-${key}`,
-                kind,
-                negative,
-                rot: 0,
-                x: 0,
-                y: 0,
-              }
-              const freeFoot =
-                isFreeGeometry ? tileFootprintFreeGrid(kind, 0) : null
-              const railUnderhangPx =
-                ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX * FREE_BANK_RAIL_SCALE
-              const tileGeom = isFreeGeometry ? 'freeGrid' : 'algebra'
-              const preview = (
-                <TileView
-                  tile={template}
-                  layout="static"
-                  selected={false}
-                  dragging={false}
-                  nonInteractive
-                  geometry={tileGeom}
-                  onPointerDown={() => {}}
-                  onDoubleClick={() => {}}
-                />
-              )
-              return (
-                <div key={key} className="bank-cell">
-                  <div
-                    className={`bank-cell__drop${isFreeGeometry ? ' bank-cell__drop--free-rail' : ''}`}
-                    style={
-                      freeFoot
-                        ? {
-                            width: Math.round(
-                              freeFoot.w * FREE_BANK_RAIL_SCALE
-                            ),
-                            height: Math.round(
-                              freeFoot.h * FREE_BANK_RAIL_SCALE +
-                                railUnderhangPx
-                            ),
-                          }
-                        : undefined
-                    }
-                    onPointerDown={(e) => onBankPointerDown(key, e)}
-                    title={caption}
-                    aria-label={`Přetáhnout dlaždici ${caption}`}
-                  >
-                    {freeFoot ? (
-                      <div
-                        className="bank-cell__free-rail-inner"
-                        style={{
-                          width: freeFoot.w,
-                          height: freeFoot.h,
-                          transform: `scale(${FREE_BANK_RAIL_SCALE})`,
-                          transformOrigin: 'top left',
-                        }}
-                      >
-                        {preview}
-                      </div>
-                    ) : (
-                      preview
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {isFreeGeometry
+              ? renderFreeRailBankCells()
+              : renderAlgebraBankCells()}
           </div>
 
           {isFreeGeometry ? (
@@ -3263,7 +3252,6 @@ export default function App() {
                 onDarkModeChange={setFreeDark}
                 equalsMode
                 onEqualsModeChange={() => {}}
-                showEqualsButton={false}
               />
               <div
                 className={`equation-free-task-banner${freeDark ? ' equation-free-task-banner--dark' : ''}`}
@@ -3273,57 +3261,60 @@ export default function App() {
                 <MathText text={formatEquationDisplay(linearTask)} />
               </div>
               <div
-                className={`equation-free-answer-banner${freeDark ? ' equation-free-answer-banner--dark' : ''}`}
+                className={`equation-free-answer-banner equation-free-answer-banner--answer-route${freeDark ? ' equation-free-answer-banner--dark' : ''}`}
                 role="group"
                 aria-label="Zapište hodnotu x"
               >
-                <span className="equation-free-answer-banner__prefix">
-                  <MathText text="x" />
-                  <span
-                    className="equation-free-answer-banner__equals"
-                    aria-hidden
-                  >
-                    =
+                {renderInlineAnswerFeedback()}
+                <div className="equation-free-answer-banner__main-row">
+                  <span className="equation-free-answer-banner__prefix">
+                    <MathText text="x" />
+                    <span
+                      className="equation-free-answer-banner__equals"
+                      aria-hidden
+                    >
+                      =
+                    </span>
                   </span>
-                </span>
-                <input
-                  className="equation-free-answer-banner__input"
-                  type="text"
-                  inputMode="decimal"
-                  value={equationAnswer}
-                  onChange={(e) => setEquationAnswer(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Hodnota x"
-                />
-                <button
-                  type="button"
-                  className="check-icon-button"
-                  onClick={checkEquation}
-                  aria-label="Zkontrolovat hodnotu x"
-                  title="Zkontrolovat x"
-                >
-                  <Check
-                    className="check-icon-button__icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
+                  <input
+                    className="equation-free-answer-banner__input"
+                    type="text"
+                    inputMode="decimal"
+                    value={equationAnswer}
+                    onChange={(e) => setEquationAnswer(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Hodnota x"
                   />
-                </button>
-                <button
-                  type="button"
-                  className="equation-free-answer-banner__refresh"
-                  onClick={() => setEquationLevelPickOpen(true)}
-                  aria-label="Nová náhodná úloha — zvolit obtížnost"
-                  title="Nová náhodná úloha"
-                >
-                  <RefreshCw
-                    className="equation-free-answer-banner__refresh-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
-                  />
-                </button>
+                  <button
+                    type="button"
+                    className="check-icon-button"
+                    onClick={checkEquation}
+                    aria-label="Zkontrolovat hodnotu x"
+                    title="Zkontrolovat x"
+                  >
+                    <Check
+                      className="check-icon-button__icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="equation-free-answer-banner__refresh"
+                    onClick={() => setEquationLevelPickOpen(true)}
+                    aria-label="Nová náhodná úloha — zvolit obtížnost"
+                    title="Nová náhodná úloha"
+                  >
+                    <RefreshCw
+                      className="equation-free-answer-banner__refresh-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
               </div>
               <FreeCanvasRightBar
                 darkMode={freeDark}
@@ -3423,15 +3414,8 @@ export default function App() {
                 onDarkModeChange={setFreeDark}
                 equalsMode={freeEqualsMode}
                 onEqualsModeChange={setFreeEqualsMode}
+                showEqualsButton={false}
               />
-              <div
-                className={`simplify-free-task-banner${freeDark ? ' simplify-free-task-banner--dark' : ''}`}
-                aria-live="polite"
-                aria-label={`Zjednodušte: ${simplifyTask.displayString}`}
-              >
-                <span className="simplify-free-task-banner__lead">Zjednodušte:</span>{' '}
-                <MathText text={simplifyTask.displayString} />
-              </div>
               {simplifyCalculatorOpen ? (
                 <div
                   className={`simplify-free-calculator-wrap${freeDark ? ' simplify-free-calculator-wrap--dark' : ''}`}
@@ -3445,73 +3429,77 @@ export default function App() {
                 </div>
               ) : null}
               <div
-                className={`simplify-free-answer-banner${freeDark ? ' simplify-free-answer-banner--dark' : ''}`}
+                className={`simplify-free-answer-banner equation-free-answer-banner equation-free-answer-banner--answer-route${freeDark ? ' simplify-free-answer-banner--dark equation-free-answer-banner--dark' : ''}`}
                 role="group"
-                aria-label="Zjednodušený výraz"
+                aria-label={`Zjednodušte výraz — zadejte výsledek: ${simplifyTask.displayString}`}
               >
-                <span className="equation-free-answer-banner__prefix">
+                {renderInlineAnswerFeedback()}
+                <div className="equation-free-answer-banner__main-row simplify-free-answer-banner__main-row">
+                  <span className="simplify-free-answer-banner__poly">
+                    <MathText text={simplifyTask.displayString} />
+                  </span>
                   <span className="equation-free-answer-banner__equals" aria-hidden>
                     =
                   </span>
-                </span>
-                <input
-                  ref={simplifyInputRef}
-                  className="equation-free-answer-banner__input"
-                  type="text"
-                  inputMode="text"
-                  value={simplifyAnswer}
-                  onChange={(e) => setSimplifyAnswer(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Zjednodušený polynom"
-                />
-                <button
-                  type="button"
-                  className="check-icon-button"
-                  onClick={checkSimplify}
-                  aria-label="Zkontrolovat zjednodušování"
-                  title="Zkontrolovat"
-                >
-                  <Check
-                    className="check-icon-button__icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
+                  <input
+                    ref={simplifyInputRef}
+                    className="factor-bracket-input simplify-free-answer-banner__input"
+                    type="text"
+                    inputMode="text"
+                    value={simplifyAnswer}
+                    onChange={(e) => setSimplifyAnswer(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Zjednodušený polynom"
                   />
-                </button>
-                <button
-                  type="button"
-                  className={`equation-free-answer-banner__calc${simplifyCalculatorOpen ? ' equation-free-answer-banner__calc--active' : ''}`}
-                  onClick={() => setSimplifyCalculatorOpen((o) => !o)}
-                  aria-label={
-                    simplifyCalculatorOpen
-                      ? 'Skrýt kalkulačku'
-                      : 'Otevřít kalkulačku'
-                  }
-                  aria-expanded={simplifyCalculatorOpen}
-                  title="Kalkulačka"
-                >
-                  <Calculator
-                    className="equation-free-answer-banner__calc-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
-                  />
-                </button>
-                <button
-                  type="button"
-                  className="equation-free-answer-banner__refresh"
-                  onClick={() => setSimplifyLevelPickOpen(true)}
-                  aria-label="Nová úloha — zvolit obtížnost"
-                  title="Nová náhodná úloha"
-                >
-                  <RefreshCw
-                    className="equation-free-answer-banner__refresh-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
-                  />
-                </button>
+                  <button
+                    type="button"
+                    className="check-icon-button"
+                    onClick={checkSimplify}
+                    aria-label="Zkontrolovat zjednodušování"
+                    title="Zkontrolovat"
+                  >
+                    <Check
+                      className="check-icon-button__icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className={`equation-free-answer-banner__calc${simplifyCalculatorOpen ? ' equation-free-answer-banner__calc--active' : ''}`}
+                    onClick={() => setSimplifyCalculatorOpen((o) => !o)}
+                    aria-label={
+                      simplifyCalculatorOpen
+                        ? 'Skrýt kalkulačku'
+                        : 'Otevřít kalkulačku'
+                    }
+                    aria-expanded={simplifyCalculatorOpen}
+                    title="Kalkulačka"
+                  >
+                    <Calculator
+                      className="equation-free-answer-banner__calc-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="equation-free-answer-banner__refresh"
+                    onClick={() => setSimplifyLevelPickOpen(true)}
+                    aria-label="Nová úloha — zvolit obtížnost"
+                    title="Nová náhodná úloha"
+                  >
+                    <RefreshCw
+                      className="equation-free-answer-banner__refresh-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
               </div>
               <FreeCanvasRightBar
                 darkMode={freeDark}
@@ -3611,6 +3599,7 @@ export default function App() {
                 onDarkModeChange={setFreeDark}
                 equalsMode={freeEqualsMode}
                 onEqualsModeChange={setFreeEqualsMode}
+                showEqualsButton={false}
               />
               {expandCalculatorOpen ? (
                 <div
@@ -3625,80 +3614,80 @@ export default function App() {
                 </div>
               ) : null}
               <div
-                className={`expand-free-answer-banner equation-free-answer-banner${freeDark ? ' expand-free-answer-banner--dark equation-free-answer-banner--dark' : ''}`}
+                className={`expand-free-answer-banner equation-free-answer-banner equation-free-answer-banner--answer-route${freeDark ? ' expand-free-answer-banner--dark equation-free-answer-banner--dark' : ''}`}
                 role="group"
-                aria-label="Roznásobení — zadejte výsledek"
+                aria-label={`Roznásobte výraz — zadejte výsledek: ${expandTask.displayString}`}
               >
-                <span className="expand-free-answer-banner__lead simplify-exercise__label">
-                  Roznásobte:
-                </span>
-                <span className="expand-free-answer-banner__expr">
-                  <MathText text={expandTask.displayString} />
-                </span>
-                <span
-                  className="equation-free-answer-banner__equals"
-                  aria-hidden
-                >
-                  =
-                </span>
-                <input
-                  ref={expandInputRef}
-                  className="equation-free-answer-banner__input expand-free-answer-banner__input"
-                  type="text"
-                  inputMode="text"
-                  value={expandAnswer}
-                  onChange={(e) => setExpandAnswer(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Roznásobený polynom"
-                />
-                <button
-                  type="button"
-                  className="check-icon-button"
-                  onClick={checkExpand}
-                  aria-label="Zkontrolovat roznásobení"
-                  title="Zkontrolovat"
-                >
-                  <Check
-                    className="check-icon-button__icon"
-                    size={22}
-                    strokeWidth={2.2}
+                {renderInlineAnswerFeedback()}
+                <div className="equation-free-answer-banner__main-row expand-free-answer-banner__main-row">
+                  <span className="expand-free-answer-banner__poly">
+                    <MathText text={expandTask.displayString} />
+                  </span>
+                  <span
+                    className="equation-free-answer-banner__equals"
                     aria-hidden
+                  >
+                    =
+                  </span>
+                  <input
+                    ref={expandInputRef}
+                    className="factor-bracket-input expand-free-answer-banner__input"
+                    type="text"
+                    inputMode="text"
+                    value={expandAnswer}
+                    onChange={(e) => setExpandAnswer(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Roznásobený polynom"
                   />
-                </button>
-                <button
-                  type="button"
-                  className={`equation-free-answer-banner__calc${expandCalculatorOpen ? ' equation-free-answer-banner__calc--active' : ''}`}
-                  onClick={() => setExpandCalculatorOpen((o) => !o)}
-                  aria-label={
-                    expandCalculatorOpen
-                      ? 'Skrýt kalkulačku'
-                      : 'Otevřít kalkulačku'
-                  }
-                  aria-expanded={expandCalculatorOpen}
-                  title="Kalkulačka"
-                >
-                  <Calculator
-                    className="equation-free-answer-banner__calc-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
-                  />
-                </button>
-                <button
-                  type="button"
-                  className="equation-free-answer-banner__refresh"
-                  onClick={() => setExpandLevelPickOpen(true)}
-                  aria-label="Nová náhodná úloha — zvolit typ a obtížnost"
-                  title="Nová náhodná úloha"
-                >
-                  <RefreshCw
-                    className="equation-free-answer-banner__refresh-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
-                  />
-                </button>
+                  <button
+                    type="button"
+                    className="check-icon-button"
+                    onClick={checkExpand}
+                    aria-label="Zkontrolovat roznásobení"
+                    title="Zkontrolovat"
+                  >
+                    <Check
+                      className="check-icon-button__icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className={`equation-free-answer-banner__calc${expandCalculatorOpen ? ' equation-free-answer-banner__calc--active' : ''}`}
+                    onClick={() => setExpandCalculatorOpen((o) => !o)}
+                    aria-label={
+                      expandCalculatorOpen
+                        ? 'Skrýt kalkulačku'
+                        : 'Otevřít kalkulačku'
+                    }
+                    aria-expanded={expandCalculatorOpen}
+                    title="Kalkulačka"
+                  >
+                    <Calculator
+                      className="equation-free-answer-banner__calc-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="equation-free-answer-banner__refresh"
+                    onClick={() => setExpandLevelPickOpen(true)}
+                    aria-label="Nová náhodná úloha — zvolit typ a obtížnost"
+                    title="Nová náhodná úloha"
+                  >
+                    <RefreshCw
+                      className="equation-free-answer-banner__refresh-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
               </div>
               <FreeCanvasRightBar
                 darkMode={freeDark}
@@ -3823,6 +3812,7 @@ export default function App() {
                 onDarkModeChange={setFreeDark}
                 equalsMode={freeEqualsMode}
                 onEqualsModeChange={setFreeEqualsMode}
+                showEqualsButton={false}
               />
               {factorCalculatorOpen ? (
                 <div
@@ -3847,99 +3837,102 @@ export default function App() {
                 </div>
               ) : null}
               <div
-                className={`factor-free-answer-banner equation-free-answer-banner${freeDark ? ' factor-free-answer-banner--dark equation-free-answer-banner--dark' : ''}`}
+                className={`factor-free-answer-banner equation-free-answer-banner equation-free-answer-banner--answer-route${freeDark ? ' factor-free-answer-banner--dark equation-free-answer-banner--dark' : ''}`}
                 role="group"
                 aria-label="Rozklad na součin — zadejte činitele v závorkách"
               >
-                <span className="factor-free-answer-banner__poly">
-                  <MathText text={polyDisplay} />
-                </span>
-                <span
-                  className="equation-free-answer-banner__equals"
-                  aria-hidden
-                >
-                  =
-                </span>
-                <span className="task-poly__lit factor-free-answer-banner__paren" aria-hidden>
-                  (
-                </span>
-                <input
-                  ref={factorInput1Ref}
-                  className="factor-bracket-input factor-free-answer-banner__bracket"
-                  type="text"
-                  inputMode="text"
-                  value={factorExpr1}
-                  onChange={(e) => setFactorExpr1(e.target.value)}
-                  onFocus={() => setFactorKbTarget('1')}
-                  aria-label="První činitel — celý výraz uvnitř závorky"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <span className="task-poly__lit factor-free-answer-banner__paren" aria-hidden>
-                  ){MUL_DOT}(
-                </span>
-                <input
-                  ref={factorInput2Ref}
-                  className="factor-bracket-input factor-free-answer-banner__bracket"
-                  type="text"
-                  inputMode="text"
-                  value={factorExpr2}
-                  onChange={(e) => setFactorExpr2(e.target.value)}
-                  onFocus={() => setFactorKbTarget('2')}
-                  aria-label="Druhý činitel — celý výraz uvnitř závorky"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <span className="task-poly__lit factor-free-answer-banner__paren" aria-hidden>
-                  )
-                </span>
-                <button
-                  type="button"
-                  className="check-icon-button"
-                  onClick={checkFactorization}
-                  aria-label="Zkontrolovat rozklad — součin činitelů"
-                  title="Zkontrolovat rozklad"
-                >
-                  <Check
-                    className="check-icon-button__icon"
-                    size={22}
-                    strokeWidth={2.2}
+                {renderInlineAnswerFeedback()}
+                <div className="equation-free-answer-banner__main-row factor-free-answer-banner__main-row">
+                  <span className="factor-free-answer-banner__poly">
+                    <MathText text={polyDisplay} />
+                  </span>
+                  <span
+                    className="equation-free-answer-banner__equals"
                     aria-hidden
+                  >
+                    =
+                  </span>
+                  <span className="task-poly__lit factor-free-answer-banner__paren" aria-hidden>
+                    (
+                  </span>
+                  <input
+                    ref={factorInput1Ref}
+                    className="factor-bracket-input factor-free-answer-banner__bracket"
+                    type="text"
+                    inputMode="text"
+                    value={factorExpr1}
+                    onChange={(e) => setFactorExpr1(e.target.value)}
+                    onFocus={() => setFactorKbTarget('1')}
+                    aria-label="První činitel — celý výraz uvnitř závorky"
+                    autoComplete="off"
+                    spellCheck={false}
                   />
-                </button>
-                <button
-                  type="button"
-                  className={`equation-free-answer-banner__calc${factorCalculatorOpen ? ' equation-free-answer-banner__calc--active' : ''}`}
-                  onClick={() => setFactorCalculatorOpen((o) => !o)}
-                  aria-label={
-                    factorCalculatorOpen
-                      ? 'Skrýt kalkulačku'
-                      : 'Otevřít kalkulačku'
-                  }
-                  aria-expanded={factorCalculatorOpen}
-                  title="Kalkulačka"
-                >
-                  <Calculator
-                    className="equation-free-answer-banner__calc-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
+                  <span className="task-poly__lit factor-free-answer-banner__paren" aria-hidden>
+                    ){MUL_DOT}(
+                  </span>
+                  <input
+                    ref={factorInput2Ref}
+                    className="factor-bracket-input factor-free-answer-banner__bracket"
+                    type="text"
+                    inputMode="text"
+                    value={factorExpr2}
+                    onChange={(e) => setFactorExpr2(e.target.value)}
+                    onFocus={() => setFactorKbTarget('2')}
+                    aria-label="Druhý činitel — celý výraz uvnitř závorky"
+                    autoComplete="off"
+                    spellCheck={false}
                   />
-                </button>
-                <button
-                  type="button"
-                  className="equation-free-answer-banner__refresh"
-                  onClick={() => setFactorLevelPickOpen(true)}
-                  aria-label="Nová náhodná úloha — zvolit obtížnost"
-                  title="Nová náhodná úloha"
-                >
-                  <RefreshCw
-                    className="equation-free-answer-banner__refresh-icon"
-                    size={22}
-                    strokeWidth={2.2}
-                    aria-hidden
-                  />
-                </button>
+                  <span className="task-poly__lit factor-free-answer-banner__paren" aria-hidden>
+                    )
+                  </span>
+                  <button
+                    type="button"
+                    className="check-icon-button"
+                    onClick={checkFactorization}
+                    aria-label="Zkontrolovat rozklad — součin činitelů"
+                    title="Zkontrolovat rozklad"
+                  >
+                    <Check
+                      className="check-icon-button__icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className={`equation-free-answer-banner__calc${factorCalculatorOpen ? ' equation-free-answer-banner__calc--active' : ''}`}
+                    onClick={() => setFactorCalculatorOpen((o) => !o)}
+                    aria-label={
+                      factorCalculatorOpen
+                        ? 'Skrýt kalkulačku'
+                        : 'Otevřít kalkulačku'
+                    }
+                    aria-expanded={factorCalculatorOpen}
+                    title="Kalkulačka"
+                  >
+                    <Calculator
+                      className="equation-free-answer-banner__calc-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="equation-free-answer-banner__refresh"
+                    onClick={() => setFactorLevelPickOpen(true)}
+                    aria-label="Nová náhodná úloha — zvolit obtížnost"
+                    title="Nová náhodná úloha"
+                  >
+                    <RefreshCw
+                      className="equation-free-answer-banner__refresh-icon"
+                      size={22}
+                      strokeWidth={2.2}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
               </div>
               <FreeCanvasRightBar
                 darkMode={freeDark}
@@ -4068,12 +4061,26 @@ export default function App() {
                       }}
                     >
                       <div
+                        className={`free-canvas-paper${freeDark ? ' free-canvas-paper--dark' : ''}`}
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          width: innerW - FREE_CANVAS_PAN_ROOM_PX,
+                          height: innerH - FREE_CANVAS_PAN_ROOM_PX,
+                          zIndex: 0,
+                          pointerEvents: 'none',
+                        }}
+                        aria-hidden
+                      />
+                      <div
                         ref={freeBoardInnerRef}
                         className="workspace workspace--free-inner"
                         style={{
                           width: innerW,
                           height: innerH,
                           position: 'relative',
+                          zIndex: 1,
                           touchAction:
                             freeCanvasTool === 'move' ? 'none' : undefined,
                         }}
@@ -4166,9 +4173,6 @@ export default function App() {
                       const inMultiFree =
                         selectedTileIds.length > 1 &&
                         selectedTileIds.includes(t.id)
-                      const isGroupTileDrag =
-                        drag?.kind === 'tile' &&
-                        Object.keys(drag.memberOrigins).length > 1
                       return (
                         <TileView
                           key={t.id}
@@ -4179,11 +4183,6 @@ export default function App() {
                           dragging={
                             drag?.kind === 'tile' &&
                             drag.memberOrigins[t.id] !== undefined
-                          }
-                          concealed={
-                            drag?.kind === 'tile' &&
-                            drag.id === t.id &&
-                            !isGroupTileDrag
                           }
                           playbackZeroPairDim={
                             freeRecordingShowPlayer &&
@@ -4196,12 +4195,17 @@ export default function App() {
                           onDuplicate={
                             inMultiFree
                               ? undefined
-                              : () => duplicatePlacedTile(t)
+                              : (side) => duplicatePlacedTile(t, side)
                           }
                           onFlipSign={
                             inMultiFree
                               ? undefined
                               : () => flipTileSign(t)
+                          }
+                          duplicatePlacement={
+                            inMultiFree
+                              ? undefined
+                              : duplicateEdgesFree(t, tiles, 'freeGrid')
                           }
                         />
                       )
@@ -4321,7 +4325,7 @@ export default function App() {
                         />
                         <button
                           type="button"
-                          className="algebra-tile__duplicate free-selection-chrome__duplicate"
+                          className="algebra-tile__duplicate algebra-tile__duplicate--bottom free-selection-chrome__duplicate"
                           aria-label="Zkopírovat vybrané dlaždice"
                           onPointerDown={(e) => {
                             e.stopPropagation()
@@ -4379,13 +4383,13 @@ export default function App() {
                       layout="board"
                       selected={selectedTileIds.includes(t.id)}
                       dragging={drag?.kind === 'tile' && drag.id === t.id}
-                      concealed={drag?.kind === 'tile' && drag.id === t.id}
                       onPointerDown={(e) => onTilePointerDown(t, e)}
                       onPointerUp={onTilePointerUp}
                       onDoubleClick={(e) => onTileDoubleClick(t, e)}
                       onContextMenu={(e) => onTileContextMenu(t, e)}
-                      onDuplicate={() => duplicatePlacedTile(t)}
+                      onDuplicate={(side) => duplicatePlacedTile(t, side)}
                       onFlipSign={() => flipTileSign(t)}
+                      duplicatePlacement={duplicateEdgesFree(t, tiles, 'algebra')}
                     />
                   ))}
                 </div>
@@ -4393,6 +4397,34 @@ export default function App() {
             </div>
           </div>
         </section>
+
+        {route === 'equation' ? (
+          <aside
+            className="bank-sidebar bank-sidebar--free-tools bank-sidebar--equation-right"
+            data-bank-drop
+            aria-label="Zásobník dlaždic na pravé straně"
+            draggable={false}
+            onDragStart={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          >
+            <h2 className="bank-heading bank-heading--rail bank-heading--sr-only">
+              Zásobník dlaždic (pravá strana)
+            </h2>
+            <div
+              className="bank-rail-equation-right-spacer-top"
+              aria-hidden
+            />
+            <div className="bank-grid bank-grid--rail bank-grid--equation-right">
+              {renderFreeRailBankCells()}
+            </div>
+            <div
+              className="bank-rail-equation-right-spacer-bottom"
+              aria-hidden
+            />
+          </aside>
+        ) : null}
       </div>
 
       {drag?.kind === 'fromBank' && bankGhostPos ? (
@@ -4403,7 +4435,6 @@ export default function App() {
             left: bankGhostPos.x,
             top: bankGhostPos.y,
             zIndex: 10000,
-            opacity: 0.5,
             pointerEvents: 'none',
           }}
           aria-hidden
@@ -4418,36 +4449,10 @@ export default function App() {
             }}
             layout="static"
             selected={false}
-            dragging={false}
-            nonInteractive
-            geometry={isFreeGeometry ? 'freeGrid' : 'algebra'}
-            onPointerDown={() => {}}
-            onDoubleClick={() => {}}
-          />
-        </div>
-      ) : null}
-      {tileDragGhostTile && tileGhostPos ? (
-        <div
-          className="tile-drag-ghost"
-          style={{
-            position: 'fixed',
-            left: tileGhostPos.x,
-            top: tileGhostPos.y,
-            zIndex: 10000,
-            opacity: 0.5,
-            pointerEvents: 'none',
-          }}
-          aria-hidden
-        >
-          <TileView
-            tile={tileDragGhostTile}
-            layout="static"
-            selected={false}
             dragging
             nonInteractive
             geometry={isFreeGeometry ? 'freeGrid' : 'algebra'}
             onPointerDown={() => {}}
-            onPointerUp={() => {}}
             onDoubleClick={() => {}}
           />
         </div>
