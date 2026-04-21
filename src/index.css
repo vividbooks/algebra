@@ -1269,6 +1269,26 @@ body {
   pointer-events: auto;
 }
 
+/* + u skupiny není uvnitř .algebra-tile--neg — stejná červená jako u záporné dlaždice. */
+.free-selection-chrome .algebra-tile__duplicate.free-selection-chrome__duplicate--neg {
+  border-color: rgb(190 18 60 / 0.45);
+  color: #be123c;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.12),
+    0 2px 8px rgb(190 18 60 / 0.22);
+}
+
+.free-selection-chrome
+  .algebra-tile__duplicate--bottom.free-selection-chrome__duplicate--neg:hover {
+  background: #fde8ec;
+  background: color-mix(in srgb, #be123c 12%, #fff);
+  transform: translate(-50%, 5px) scale(1.06);
+}
+
+.free-selection-chrome .algebra-tile__duplicate.free-selection-chrome__duplicate--neg:focus-visible {
+  outline-color: #be123c;
+}
+
 .algebra-tile--selected:not(.algebra-tile--drag) .algebra-tile__sign-toggle {
   opacity: 1;
   pointer-events: auto;

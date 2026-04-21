@@ -99,32 +99,10 @@ export function tileRectsOverlap(
   )
 }
 
-/**
- * Kde zobrazit tlačítko kopírování (+ v kolečku).
- *
- * UX pro rychlé skládání: + má zůstat viditelné i když na dané straně už další
- * dlaždice přímo navazuje. Samotné umístění kopie pak řeší `tryPlaceDuplicate()`,
- * které hledá nejbližší další volné místo v daném směru.
- */
 export type DuplicateEdgeFlags = {
   left: boolean
   right: boolean
   bottom: boolean
-}
-
-export function duplicateEdgesFree(
-  tile: PlacedTile,
-  allTiles: PlacedTile[],
-  mode: TileGeomMode
-): DuplicateEdgeFlags {
-  void tile
-  void allTiles
-  void mode
-  return {
-    left: true,
-    right: true,
-    bottom: true,
-  }
 }
 
 export function cellsOverlap(
@@ -146,6 +124,136 @@ export function hasOverlap(
   mode: TileGeomMode = 'algebra'
 ): boolean {
   return cellsOverlap(tiles, undefined, mode)
+}
+
+/** Průnik délky na ose (např. y při svislé hraně) musí být kladný — sdílený segment. */
+function axisOverlap1D(a0: number, a1: number, b0: number, b1: number): boolean {
+  return Math.min(a1, b1) > Math.max(a0, b0)
+}
+
+/** Stejný „typ“ pro kopírování: druh, znaménko; u x i shodná orientace. */
+function duplicateTileShapeMatches(a: PlacedTile, b: PlacedTile): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.negative !== b.negative) return false
+  if (a.kind === 'x1' && a.rot !== b.rot) return false
+  return true
+}
+
+/**
+ * Levý soused draftu (sdílená svislá hrana) má pravý okraj = draft.x.
+ * Pravý soused draftu má levý okraj = draft.x + w.
+ * Horní soused draftu (nad draftem) má spodní okraj = draft.y.
+ */
+function inwardNeighborSameTypeAsSource(
+  source: PlacedTile,
+  draft: PlacedTile,
+  side: DuplicateFromSide,
+  mode: TileGeomMode,
+  allTiles: PlacedTile[]
+): boolean {
+  const { w, h } = tileFootprintForMode(source.kind, source.rot, mode)
+  const dx0 = draft.x
+  const dx1 = draft.x + w
+  const dy0 = draft.y
+  const dy1 = draft.y + h
+
+  if (side === 'right') {
+    for (const o of allTiles) {
+      const fo = tileFootprintForMode(o.kind, o.rot, mode)
+      const ox1 = o.x + fo.w
+      if (ox1 !== dx0) continue
+      if (!axisOverlap1D(dy0, dy1, o.y, o.y + fo.h)) continue
+      if (duplicateTileShapeMatches(source, o)) return true
+    }
+    return false
+  }
+  if (side === 'left') {
+    for (const o of allTiles) {
+      const fo = tileFootprintForMode(o.kind, o.rot, mode)
+      if (o.x !== dx1) continue
+      if (!axisOverlap1D(dy0, dy1, o.y, o.y + fo.h)) continue
+      if (duplicateTileShapeMatches(source, o)) return true
+    }
+    return false
+  }
+  if (side === 'bottom') {
+    for (const o of allTiles) {
+      const fo = tileFootprintForMode(o.kind, o.rot, mode)
+      const ob = o.y + fo.h
+      if (ob !== dy0) continue
+      if (!axisOverlap1D(dx0, dx1, o.x, o.x + fo.w)) continue
+      if (duplicateTileShapeMatches(source, o)) return true
+    }
+    return false
+  }
+  return false
+}
+
+const DUPLICATE_DRAFT_ID = '__duplicate-draft__'
+
+/**
+ * První volná pozice ve směru strany, kde kopie přímo navazuje na dlaždici stejného typu
+ * (sdílená hrana s existující dlaždicí shodného druhu a znaménka).
+ */
+export function duplicateRayFirstValidPlacement(
+  source: PlacedTile,
+  allTiles: PlacedTile[],
+  mode: TileGeomMode,
+  side: DuplicateFromSide
+): { x: number; y: number } | null {
+  const { w, h } = tileFootprintForMode(source.kind, source.rot, mode)
+  const x0 = source.x
+  const y0 = source.y
+
+  const tryAt = (rawX: number, rawY: number): { x: number; y: number } | null => {
+    const xClamped = Math.max(0, rawX)
+    const yClamped = Math.max(0, rawY)
+    const draft: PlacedTile = {
+      ...source,
+      id: DUPLICATE_DRAFT_ID,
+      x: xClamped,
+      y: yClamped,
+    }
+    if (allTiles.some((o) => tilesAreZeroPairOverlapping(draft, o, mode))) {
+      return null
+    }
+    const next = [...allTiles, draft]
+    if (hasOverlap(next, mode)) return null
+    if (!inwardNeighborSameTypeAsSource(source, draft, side, mode, allTiles)) {
+      return null
+    }
+    return { x: xClamped, y: yClamped }
+  }
+
+  for (let n = 1; n <= 28; n++) {
+    if (side === 'left') {
+      const r = tryAt(x0 - n * w, y0)
+      if (r) return r
+    } else if (side === 'right') {
+      const r = tryAt(x0 + n * w, y0)
+      if (r) return r
+    } else {
+      const r = tryAt(x0, y0 + n * h)
+      if (r) return r
+    }
+  }
+  return null
+}
+
+/**
+ * Kde zobrazit tlačítko kopírování (+ v kolečku) — jen pokud existuje platné umístění
+ * kopie v daném směru tak, že přímo navazuje na dlaždici stejného typu.
+ */
+export function duplicateEdgesFree(
+  tile: PlacedTile,
+  allTiles: PlacedTile[],
+  mode: TileGeomMode
+): DuplicateEdgeFlags {
+  return {
+    left: duplicateRayFirstValidPlacement(tile, allTiles, mode, 'left') !== null,
+    right: duplicateRayFirstValidPlacement(tile, allTiles, mode, 'right') !== null,
+    bottom: duplicateRayFirstValidPlacement(tile, allTiles, mode, 'bottom') !== null,
+  }
 }
 
 export function overlapsOthers(

@@ -29,6 +29,7 @@ import { TileView } from './components/TileView'
 import {
   bankKey,
   duplicateEdgesFree,
+  duplicateRayFirstValidPlacement,
   partitionTilesByEqualsColumn,
   hasOverlap,
   tilesAreZeroPairOverlapping,
@@ -277,6 +278,13 @@ function tryPlaceDuplicate(
   const { w, h } = tileFootprintForMode(source.kind, source.rot, geom)
   const x0 = source.x
   const y0 = source.y
+
+  if (preferredSide != null) {
+    const pos = duplicateRayFirstValidPlacement(source, all, geom, preferredSide)
+    if (!pos) return null
+    return { ...source, id: crypto.randomUUID(), x: pos.x, y: pos.y }
+  }
+
   const seen = new Set<string>()
   const rawCandidates: [number, number][] = []
   const pushUnique = (x: number, y: number) => {
@@ -285,9 +293,6 @@ function tryPlaceDuplicate(
     seen.add(k)
     rawCandidates.push([x, y])
   }
-  if (preferredSide === 'left') pushUnique(x0 - w, y0)
-  else if (preferredSide === 'right') pushUnique(x0 + w, y0)
-  else if (preferredSide === 'bottom') pushUnique(x0, y0 + h)
   for (let dy = 1; dy <= 28; dy++) pushUnique(x0, y0 + dy * h)
   for (let dx = 1; dx <= 28; dx++) {
     pushUnique(x0 + dx * w, y0)
@@ -4409,7 +4414,11 @@ export default function App() {
                         />
                         <button
                           type="button"
-                          className="algebra-tile__duplicate algebra-tile__duplicate--bottom free-selection-chrome__duplicate"
+                          className={`algebra-tile__duplicate algebra-tile__duplicate--bottom free-selection-chrome__duplicate${
+                            freeMultiSelectionChrome.signMode === 'neg'
+                              ? ' free-selection-chrome__duplicate--neg'
+                              : ''
+                          }`}
                           aria-label="Zkopírovat vybrané dlaždice"
                           onPointerDown={(e) => {
                             e.stopPropagation()
