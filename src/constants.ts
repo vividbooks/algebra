@@ -1,11 +1,11 @@
 /**
- * Strana jednotkového čtverce (1×1) v pixelech.
- * Strana x (x² a delší strana x×1) zvolena tak, aby NEBYLA celočíselný násobek UNIT_PX,
- * aby délka x nešla „složit“ z celých kopií strany 1.
+ * Poměr stran obdélníku x×1 (a odvozeně čtverců): delší : kratší = 45 : 19.
+ * UNIT_PX = kratší strana (1×1), X_PX = delší strana (x², delší strana x).
+ * Delší strana není celočíselný násobek kratší (2·38=76, 3·38=114), aby délka x nešla „složit“ z celých kopií strany 1.
  */
-export const UNIT_PX = 28
-/** Delší strana x / strana x² v algebře — není celočíselný násobek UNIT_PX (2·28=56, 3·28=84). */
-export const X_PX = 51
+export const UNIT_PX = 38
+/** Delší strana x / strana x² v algebře (45·k px při kratší 19·k). */
+export const X_PX = 90
 
 /**
  * Rámeček dlaždice (styl PT) — inset obrys a posun spodní podložky jsou všude stejné (px),
@@ -18,12 +18,12 @@ export const ALGEBRA_TILE_FRAME_UNDERLAY_SHIFT_PX = 3
 export const FREE_GRID_CELL_PX = 50
 
 /**
- * Kratší strana obdélníku „x“ na volném plátně a zároveň strana čtverce „1“.
+ * Kratší strana obdélníku „x“ na volném plátně a strana čtverce „1“ (stejný poměr 45:19 k délce jako v algebře).
  */
-export const FREE_GRID_X1_SHORT_PX = 34
+export const FREE_GRID_X1_SHORT_PX = 38
 
 /**
- * Delší strana x a strana čtverce x² na volném plátně — mírně kratší než 2× buňka mřížky.
+ * Delší strana x a strana čtverce x² na volném plátně — mírně kratší než 2× buňka mřížky (90:38 = 45:19).
  */
 export const FREE_GRID_X_LONG_PX = 2 * FREE_GRID_CELL_PX - 10
 
