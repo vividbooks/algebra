@@ -220,6 +220,40 @@ function resizeToFitTiles(
   return { gw: maxR, gh: maxB }
 }
 
+const TILE_BLOCK_EDGE_EPS = 0.5
+
+function overlap1D(a0: number, a1: number, b0: number, b1: number): number {
+  return Math.min(a1, b1) - Math.max(a0, b0)
+}
+
+function tilesBelongToSameBlock(
+  a: PlacedTile,
+  b: PlacedTile,
+  geom: TileGeomMode
+): boolean {
+  if (a.kind !== b.kind || a.negative !== b.negative) return false
+  const fa = tileFootprintForMode(a.kind, a.rot, geom)
+  const fb = tileFootprintForMode(b.kind, b.rot, geom)
+  const ar = a.x + fa.w
+  const ab = a.y + fa.h
+  const br = b.x + fb.w
+  const bb = b.y + fb.h
+
+  const yOverlap = overlap1D(a.y, ab, b.y, bb)
+  if (yOverlap > TILE_BLOCK_EDGE_EPS) {
+    if (Math.abs(ar - b.x) < TILE_BLOCK_EDGE_EPS) return true
+    if (Math.abs(br - a.x) < TILE_BLOCK_EDGE_EPS) return true
+  }
+
+  const xOverlap = overlap1D(a.x, ar, b.x, br)
+  if (xOverlap > TILE_BLOCK_EDGE_EPS) {
+    if (Math.abs(ab - b.y) < TILE_BLOCK_EDGE_EPS) return true
+    if (Math.abs(bb - a.y) < TILE_BLOCK_EDGE_EPS) return true
+  }
+
+  return false
+}
+
 /** Omezí souřadnici na nezápornou — bez zaokrouhlování nebo magnetu. */
 function boardClamp(v: number): number {
   return Math.max(0, v)
@@ -583,6 +617,23 @@ export default function App() {
   const expandInputRef = useRef<HTMLInputElement>(null)
   const prevExpandTaskIdRef = useRef<string | null>(null)
 
+  const [tiles, setTiles] = useState<PlacedTile[]>([])
+  const [selectedTileIds, setSelectedTileIds] = useState<string[]>([])
+  const [lassoPreview, setLassoPreview] = useState<{
+    left: number
+    top: number
+    w: number
+    h: number
+  } | null>(null)
+  const [drag, setDrag] = useState<DragMode>(null)
+  /** Výsledek kontroly odpovědi — vždy jen krátká zpráva v postranním panelu. */
+  const [checkFeedback, setCheckFeedback] = useState<
+    'success' | 'fail' | null
+  >(null)
+  /** Celé lineární činitele (obsah závorky), např. x+3 nebo 2x-1. */
+  const [factorExpr1, setFactorExpr1] = useState('')
+  const [factorExpr2, setFactorExpr2] = useState('')
+
   const enterEquationMode = useCallback((level: EquationLevel) => {
     setRoute('equation')
     setLinearTask(generateEquationTask(level))
@@ -634,19 +685,6 @@ export default function App() {
     x: number
     y: number
   } | null>(null)
-  const [tiles, setTiles] = useState<PlacedTile[]>([])
-  const [selectedTileIds, setSelectedTileIds] = useState<string[]>([])
-  const [lassoPreview, setLassoPreview] = useState<{
-    left: number
-    top: number
-    w: number
-    h: number
-  } | null>(null)
-  const [drag, setDrag] = useState<DragMode>(null)
-  /** Výsledek kontroly odpovědi — vždy jen krátká zpráva v postranním panelu. */
-  const [checkFeedback, setCheckFeedback] = useState<
-    'success' | 'fail' | null
-  >(null)
   const [showControlsHelp, setShowControlsHelp] = useState(false)
   /** Hlavní menu: 3 záložky jako v geometrii (kategorie | volné plátno | nápověda). */
   const [menuView, setMenuView] = useState<
@@ -714,9 +752,6 @@ export default function App() {
   freeZoomRef.current = freeZoom
   freePanRef.current = freePan
   freeRecordingRef.current = freeRecording
-  /** Celé lineární činitele (obsah závorky), např. x+3 nebo 2x-1. */
-  const [factorExpr1, setFactorExpr1] = useState('')
-  const [factorExpr2, setFactorExpr2] = useState('')
   /** Který činitel dostává znaky z matematické klávesnice. */
   const [factorKbTarget, setFactorKbTarget] = useState<'1' | '2'>('1')
   const [viewSize, setViewSize] = useState(() => {
@@ -1052,7 +1087,7 @@ export default function App() {
       el.removeEventListener('gestureend', onGestureEnd)
       if (raf !== null) cancelAnimationFrame(raf)
     }
-  }, [route])
+  }, [route, applyFreeZoomRef])
 
   useEffect(() => {
     if (!drag || !isFreeGeometryRoute(route)) {
@@ -1396,12 +1431,60 @@ export default function App() {
     () => resizeToFitTiles(tiles, tileGeom),
     [tiles, tileGeom]
   )
+  /** Velikost souvislého bloku stejného typu/znaménka pro každou dlaždici. */
+  const tileBlockCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    const visited = new Set<string>()
+
+    for (const tile of tiles) {
+      if (visited.has(tile.id)) continue
+      const queue = [tile]
+      const component: PlacedTile[] = []
+      visited.add(tile.id)
+
+      while (queue.length > 0) {
+        const cur = queue.shift()!
+        component.push(cur)
+        for (const other of tiles) {
+          if (visited.has(other.id)) continue
+          if (!tilesBelongToSameBlock(cur, other, tileGeom)) continue
+          visited.add(other.id)
+          queue.push(other)
+        }
+      }
+
+      for (const member of component) counts.set(member.id, component.length)
+    }
+
+    return counts
+  }, [tiles, tileGeom])
+
   /**
-   * Logická velikost světa (bez zoomu). Na volném plátně je navíc rezerva pro posun
-   * jako ve Figmě (žádný nativní scroll — jen translate + scale na kameře).
+   * Pořadí vykreslení — nejdřív nevybrané, pak vybrané (navrch).
+   * Bez toho mohou nově přidané dlaždice v DOMu přebít vrstvení a zakrýt + u zdrojové dlaždice.
    */
+  const tilesInPaintOrder = useMemo(() => {
+    const sel = new Set(selectedTileIds)
+    const rest: PlacedTile[] = []
+    const picked: PlacedTile[] = []
+    for (const tile of tiles) {
+      if (sel.has(tile.id)) picked.push(tile)
+      else rest.push(tile)
+    }
+    return [...rest, ...picked]
+  }, [tiles, selectedTileIds])
+
+  /**
+   * Logická velikost světa (bez zoomu).
+   *
+   * V čistém „Volném plátně“ může šířka růst s dlaždicemi. V úlohových režimech
+   * (rovnice / zjednodušování / roznásobování / rozklad) musí zůstat šířka
+   * svázaná s viewportem, jinak odtažení pravé strany zvětšuje plátno a ujíždí "=".
+   */
+  const worldBaseW =
+    isFreeGeometry && route !== 'free' ? viewSize.w : Math.max(gw, viewSize.w)
   const innerW =
-    Math.max(gw, viewSize.w) +
+    worldBaseW +
     (isFreeGeometry
       ? FREE_WORK_SURFACE_PADDING_PX + FREE_CANVAS_PAN_ROOM_PX
       : 0)
@@ -1485,7 +1568,7 @@ export default function App() {
       setFreePan((p) => ({ x: p.x + dW / 2, y: p.y + dH / 2 }))
     }
     viewSizeForFreePanRef.current = viewSize
-  }, [route, viewSize.w, viewSize.h])
+  }, [route, viewSize])
 
   /** Při prvním zobrazení volného plátna: vycentrovat svět vůči viewportu. */
   useLayoutEffect(() => {
@@ -1705,7 +1788,8 @@ export default function App() {
         if (!draft) return prev
         const next = [...prev, draft]
         recordFreeTilesMutation(prev, next)
-        queueMicrotask(() => setSelectedTileIds([draft.id]))
+        /* Výběr zůstane u zdrojové dlaždice — plus ovládání nemizí na novou kopii. */
+        queueMicrotask(() => setSelectedTileIds([source.id]))
         return next
       })
     },
@@ -2380,7 +2464,7 @@ export default function App() {
     armTileDragSession(d, e.pointerId, e.clientX, e.clientY)
   }
 
-  const onTilePointerUp = (_e: React.PointerEvent) => {}
+  const onTilePointerUp = () => {}
 
   const flipTileSign = useCallback(
     (tile: PlacedTile) => {
@@ -4166,10 +4250,12 @@ export default function App() {
                         aria-hidden
                       />
                     ) : null}
-                    {tiles.map((t) => {
+                    {tilesInPaintOrder.map((t) => {
                       const inMultiFree =
                         selectedTileIds.length > 1 &&
                         selectedTileIds.includes(t.id)
+                      const duplicateSameKindCount =
+                        tileBlockCounts.get(t.id) ?? 1
                       return (
                         <TileView
                           key={t.id}
@@ -4204,6 +4290,7 @@ export default function App() {
                               ? undefined
                               : duplicateEdgesFree(t, tiles, 'freeGrid')
                           }
+                          duplicateSameKindCount={duplicateSameKindCount}
                         />
                       )
                     })}
@@ -4373,22 +4460,27 @@ export default function App() {
                   }}
                   onClick={onBoardClick}
                 >
-                  {tiles.map((t) => (
-                    <TileView
-                      key={t.id}
-                      tile={t}
-                      layout="board"
-                      selected={selectedTileIds.includes(t.id)}
-                      dragging={drag?.kind === 'tile' && drag.id === t.id}
-                      onPointerDown={(e) => onTilePointerDown(t, e)}
-                      onPointerUp={onTilePointerUp}
-                      onDoubleClick={(e) => onTileDoubleClick(t, e)}
-                      onContextMenu={(e) => onTileContextMenu(t, e)}
-                      onDuplicate={(side) => duplicatePlacedTile(t, side)}
-                      onFlipSign={() => flipTileSign(t)}
-                      duplicatePlacement={duplicateEdgesFree(t, tiles, 'algebra')}
-                    />
-                  ))}
+                  {tilesInPaintOrder.map((t) => {
+                    const duplicateSameKindCount =
+                      tileBlockCounts.get(t.id) ?? 1
+                    return (
+                      <TileView
+                        key={t.id}
+                        tile={t}
+                        layout="board"
+                        selected={selectedTileIds.includes(t.id)}
+                        dragging={drag?.kind === 'tile' && drag.id === t.id}
+                        onPointerDown={(e) => onTilePointerDown(t, e)}
+                        onPointerUp={onTilePointerUp}
+                        onDoubleClick={(e) => onTileDoubleClick(t, e)}
+                        onContextMenu={(e) => onTileContextMenu(t, e)}
+                        onDuplicate={(side) => duplicatePlacedTile(t, side)}
+                        onFlipSign={() => flipTileSign(t)}
+                        duplicatePlacement={duplicateEdgesFree(t, tiles, 'algebra')}
+                        duplicateSameKindCount={duplicateSameKindCount}
+                      />
+                    )
+                  })}
                 </div>
               )}
             </div>

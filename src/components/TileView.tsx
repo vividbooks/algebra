@@ -40,6 +40,8 @@ interface TileViewProps {
   duplicatePlacement?: DuplicateEdgeFlags
   /** Plocha — přepnutí znaménka (jako kontextové menu / pravý klik). */
   onFlipSign?: () => void
+  /** Kolik dlaždic stejného typu a znaménka je aktuálně na ploše (bublina u + při hoveru). */
+  duplicateSameKindCount?: number
   /** Přehrávání záznamu — nulový pár před odstraněním (slabá neprůhlednost + přeškrtnutí). */
   playbackZeroPairDim?: boolean
 }
@@ -58,6 +60,7 @@ export function TileView({
   onDuplicate,
   duplicatePlacement,
   onFlipSign,
+  duplicateSameKindCount,
   playbackZeroPairDim = false,
 }: TileViewProps) {
   const { w, h } = tileFootprintForMode(tile.kind, tile.rot, geometry)
@@ -97,11 +100,23 @@ export function TileView({
     bottom: 'Zkopírovat dlaždici pod touto',
   }
 
+  const showDupCountBubble =
+    typeof duplicateSameKindCount === 'number' && duplicateSameKindCount >= 1
+
   const duplicateButton = (side: DuplicateFromSide) => (
     <button
       type="button"
       className={`algebra-tile__duplicate algebra-tile__duplicate--${side}`}
-      aria-label={duplicateAria[side]}
+      aria-label={
+        showDupCountBubble
+          ? `${duplicateAria[side]} — v tomto bloku je ${duplicateSameKindCount}`
+          : duplicateAria[side]
+      }
+      title={
+        showDupCountBubble
+          ? `V tomto bloku: ${duplicateSameKindCount}`
+          : undefined
+      }
       onPointerDown={(e) => {
         e.stopPropagation()
       }}
@@ -114,6 +129,14 @@ export function TileView({
         e.stopPropagation()
       }}
     >
+      {showDupCountBubble ? (
+        <span
+          className="algebra-tile__duplicate-count-bubble"
+          aria-hidden
+        >
+          {duplicateSameKindCount}
+        </span>
+      ) : null}
       <Plus size={15} strokeWidth={2.6} aria-hidden />
     </button>
   )
@@ -137,7 +160,16 @@ export function TileView({
         touchAction: nonInteractive ? 'auto' : 'none',
         userSelect: 'none',
         pointerEvents: nonInteractive ? 'none' : 'auto',
-        zIndex: onBoard ? (dragging ? 500 : selected ? 20 : 1) : 0,
+        /* Nad ostatními dlaždicemi musí být vrstva s + / přepínačem, ať dlaždice pod nepřekrývají ovladače. */
+        zIndex: onBoard
+          ? dragging
+            ? 2000
+            : showSelectionChrome
+              ? 500
+              : selected
+                ? 120
+                : 1
+          : 0,
       }}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}

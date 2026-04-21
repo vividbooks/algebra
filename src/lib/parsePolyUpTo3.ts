@@ -19,7 +19,7 @@ function parseOneSignedTerm(
   const body = raw.slice(1)
   if (!body) return null
 
-  let norm = body.replace(/\^3/gi, '³').replace(/\^2/gi, '²')
+  const norm = body.replace(/\^3/gi, '³').replace(/\^2/gi, '²')
 
   if (/x³|x\s*\^?\s*³/i.test(norm) || /³\s*x/i.test(norm)) {
     const coefPart = norm.replace(/x³|x\s*\^?\s*³/gi, '').replace(/³\s*x/gi, '').trim()

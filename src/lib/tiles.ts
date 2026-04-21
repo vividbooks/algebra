@@ -99,18 +99,13 @@ export function tileRectsOverlap(
   )
 }
 
-const EDGE_ALIGN_EPS = 0.5
-
-function segmentOverlap1D(
-  a0: number,
-  a1: number,
-  b0: number,
-  b1: number
-): number {
-  return Math.min(a1, b1) - Math.max(a0, b0)
-}
-
-/** Kde smí být tlačítko kopírování (+ v kolečku): strana je volná, pokud na ni přímo nenavazuje jiná dlaždice. */
+/**
+ * Kde zobrazit tlačítko kopírování (+ v kolečku).
+ *
+ * UX pro rychlé skládání: + má zůstat viditelné i když na dané straně už další
+ * dlaždice přímo navazuje. Samotné umístění kopie pak řeší `tryPlaceDuplicate()`,
+ * které hledá nejbližší další volné místo v daném směru.
+ */
 export type DuplicateEdgeFlags = {
   left: boolean
   right: boolean
@@ -122,40 +117,13 @@ export function duplicateEdgesFree(
   allTiles: PlacedTile[],
   mode: TileGeomMode
 ): DuplicateEdgeFlags {
-  const { w: tw, h: th } = tileFootprintForMode(tile.kind, tile.rot, mode)
-  const tx = tile.x
-  const ty = tile.y
-  const tr = tx + tw
-  const tb = ty + th
-
-  let leftBlocked = false
-  let rightBlocked = false
-  let bottomBlocked = false
-
-  for (const o of allTiles) {
-    if (o.id === tile.id) continue
-    const { w: ow, h: oh } = tileFootprintForMode(o.kind, o.rot, mode)
-    const ox = o.x
-    const oy = o.y
-    const or = ox + ow
-    const ob = oy + oh
-
-    const yOv = segmentOverlap1D(ty, tb, oy, ob)
-    if (yOv > EDGE_ALIGN_EPS) {
-      if (Math.abs(or - tx) < EDGE_ALIGN_EPS) leftBlocked = true
-      if (Math.abs(ox - tr) < EDGE_ALIGN_EPS) rightBlocked = true
-    }
-
-    const xOv = segmentOverlap1D(tx, tr, ox, or)
-    if (xOv > EDGE_ALIGN_EPS) {
-      if (Math.abs(oy - tb) < EDGE_ALIGN_EPS) bottomBlocked = true
-    }
-  }
-
+  void tile
+  void allTiles
+  void mode
   return {
-    left: !leftBlocked,
-    right: !rightBlocked,
-    bottom: !bottomBlocked,
+    left: true,
+    right: true,
+    bottom: true,
   }
 }
 
@@ -234,7 +202,7 @@ export function eliminateAllZeroPairs(
  * Součet příspěvků dlaždic jako polynom v x (x², x, konstanta; x³ z dlaždic nejde).
  */
 export function polynomialFromPlacedTiles(tiles: PlacedTile[]): PolyUpTo3 {
-  let a3 = 0
+  const a3 = 0
   let a2 = 0
   let a1 = 0
   let a0 = 0

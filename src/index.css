@@ -35,8 +35,9 @@
 }
 
 :root {
-  /* Cooper BT je v projektu jen jako Light Italic — při font-style: normal ho prohlížeč stejně použije, takže číslice vypadají kurzívou. Pro „čísla rovně“ použijte --font-math-upright; proměnná x zůstane kurzívou přes .math-var + Cooper. */
-  --font-math-upright: ui-serif, Georgia, 'Times New Roman', serif;
+  /* Matematické výrazy i výstupy mají být všude v Cooperu. V projektu je dostupný Cooper BT Light Italic,
+   * takže jej záměrně používáme i pro "upright" matematické bloky kvůli jednotnému vzhledu. */
+  --font-math-upright: 'Cooper BT', ui-serif, Georgia, 'Times New Roman', serif;
   --font-math-cooper: 'Cooper BT', ui-serif, Georgia, 'Times New Roman', serif;
   --font-fenomen: 'Fenomen Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bg: #f4f6fa;
@@ -46,6 +47,17 @@
   --border: #e2e8f0;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
+  /* Fallbacky pro prohlížeče bez `color-mix()` — aproximace směsí používaných níže */
+  --fallback-primary-on-surface-08: #edf4fe;
+  --fallback-primary-on-surface-12: #e8f0fe;
+  --fallback-primary-on-surface-16: #e0e9ff;
+  --fallback-primary-alpha-10: rgb(37 99 235 / 0.1);
+  --fallback-primary-alpha-18: rgb(37 99 235 / 0.18);
+  --fallback-green-on-surface-14: #e8f5ea;
+  --fallback-green-border-45: #b6e0c3;
+  --fallback-red-on-surface-12: #fdecec;
+  --fallback-red-border-40: #f5b8b8;
+  --fallback-primary-border-72: #aac4f5;
   --workspace-bg: #eef1f7;
   --radius: 10px;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -464,21 +476,21 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #16a34a;
+  background: #22c55e;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgb(22 163 74 / 0.35);
+  box-shadow: 0 6px 14px rgb(34 197 94 / 0.28);
   transition:
     background 0.15s ease,
     opacity 0.15s ease;
 }
 
 .check-icon-button:hover {
-  background: #15803d;
+  background: #16a34a;
 }
 
 .check-icon-button:focus-visible {
-  outline: 2px solid rgb(22 163 74 / 0.55);
+  outline: 2px solid rgb(34 197 94 / 0.6);
   outline-offset: 2px;
 }
 
@@ -489,14 +501,14 @@ body {
 .equation-free-answer-banner--dark .check-icon-button,
 .simplify-free-answer-banner--dark .check-icon-button,
 .expand-free-answer-banner--dark .check-icon-button {
-  background: #22c55e;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  background: #4ade80;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.2);
 }
 
 .equation-free-answer-banner--dark .check-icon-button:hover,
 .simplify-free-answer-banner--dark .check-icon-button:hover,
 .expand-free-answer-banner--dark .check-icon-button:hover {
-  background: #16a34a;
+  background: #22c55e;
 }
 
 .task-random-intro + .btn {
@@ -572,6 +584,7 @@ body {
   border: none;
   border-bottom: 2px solid var(--primary);
   border-radius: 2px 2px 0 0;
+  background: var(--fallback-primary-alpha-10);
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   outline: none;
 }
@@ -582,6 +595,7 @@ body {
 }
 
 .factor-inline-input:focus {
+  background: var(--fallback-primary-alpha-18);
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   border-bottom-color: var(--primary-hover);
 }
@@ -612,6 +626,7 @@ body {
   border: none;
   border-bottom: 2px solid var(--primary);
   border-radius: 2px 2px 0 0;
+  background: var(--fallback-primary-alpha-10);
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   outline: none;
 }
@@ -622,6 +637,7 @@ body {
 }
 
 .factor-bracket-input:focus {
+  background: var(--fallback-primary-alpha-18);
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   border-bottom-color: var(--primary-hover);
 }
@@ -843,6 +859,7 @@ body {
 
 .feedback {
   padding: 0.55rem 0.65rem;
+  background: var(--fallback-primary-on-surface-08);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   font-size: 0.88rem;
   border: 1px solid var(--border);
@@ -855,14 +872,18 @@ body {
 }
 
 .feedback--success {
+  background: var(--fallback-green-on-surface-14);
   background: color-mix(in srgb, #16a34a 14%, var(--surface));
+  border-color: var(--fallback-green-border-45);
   border-color: color-mix(in srgb, #16a34a 45%, var(--border));
   color: #166534;
   font-weight: 600;
 }
 
 .feedback--fail {
+  background: var(--fallback-red-on-surface-12);
   background: color-mix(in srgb, #dc2626 12%, var(--surface));
+  border-color: var(--fallback-red-border-40);
   border-color: color-mix(in srgb, #dc2626 40%, var(--border));
   color: #991b1b;
   font-weight: 600;
@@ -903,12 +924,20 @@ body {
   border-radius: var(--at-r, 10px);
   background: var(--tile-rim-bot);
   box-shadow:
-    inset 0 0 0 var(--at-stroke, 3px)
-      color-mix(in srgb, var(--tile-rim-bot) 72%, white 28%),
+    inset 0 0 0 var(--at-stroke, 3px) rgb(80 120 190 / 0.45),
     inset 0 1px 0 0 rgb(255 255 255 / 0.14);
   transform: translateY(var(--at-shift, 0px));
   pointer-events: none;
   z-index: 0;
+}
+
+@supports (background: color-mix(in srgb, red, blue)) {
+  .algebra-tile__underlay {
+    box-shadow:
+      inset 0 0 0 var(--at-stroke, 3px)
+        color-mix(in srgb, var(--tile-rim-bot) 72%, white 28%),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.14);
+  }
 }
 
 .algebra-tile__face {
@@ -1076,7 +1105,13 @@ body {
 
 /* Ovladače u vybrané dlaždice — nad sousedními dlaždicemi. */
 .algebra-tile--selected:not(.algebra-tile--drag) {
-  z-index: 45 !important;
+  z-index: 120 !important;
+}
+
+/* Dlaždice s + / přepínačem — nad všemi ostatními dlaždicemi (včetně nově přidaných). */
+.algebra-tile--selection-chrome:not(.algebra-tile--drag) {
+  z-index: 500 !important;
+  isolation: isolate;
 }
 
 /*
@@ -1199,6 +1234,7 @@ body {
 }
 
 .free-lasso-rect {
+  border: 2px dashed rgb(37 99 235 / 0.45);
   border: 2px dashed color-mix(in srgb, var(--primary) 55%, transparent);
   background: rgb(37 99 235 / 0.08);
   border-radius: 4px;
@@ -1285,7 +1321,7 @@ body {
 
 .algebra-tile__duplicate {
   position: absolute;
-  z-index: 2;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1293,6 +1329,7 @@ body {
   height: 1.85rem;
   margin: 0;
   padding: 0;
+  border: 2px solid var(--fallback-primary-border-72);
   border: 2px solid color-mix(in srgb, var(--primary) 72%, var(--border));
   border-radius: 50%;
   background: #fff;
@@ -1307,6 +1344,40 @@ body {
     opacity 0.12s ease,
     transform 0.12s ease,
     background 0.12s ease;
+}
+
+/* Počet stejných dlaždic na ploše — u + jen při hoveru (rychlé přidávání z jedné dlaždice). */
+.algebra-tile__duplicate-count-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  transform: translateX(-50%);
+  z-index: 3;
+  min-width: 1.7rem;
+  min-height: 1.55rem;
+  padding: 0.14rem 0.5rem 0.16rem;
+  font-family: var(--font-fenomen);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #1e40af;
+  text-align: center;
+  background: #fff;
+  border: 2px solid rgb(37 99 235 / 0.35);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.algebra-tile__duplicate:hover .algebra-tile__duplicate-count-bubble {
+  opacity: 1;
+}
+
+.algebra-tile--neg .algebra-tile__duplicate-count-bubble {
+  color: #9f1239;
+  border-color: rgb(190 18 60 / 0.38);
 }
 
 .algebra-tile__duplicate--bottom {
@@ -1341,16 +1412,19 @@ body {
 }
 
 .algebra-tile__duplicate--bottom:hover {
+  background: var(--fallback-primary-on-surface-12);
   background: color-mix(in srgb, var(--primary) 12%, #fff);
   transform: translate(-50%, 5px) scale(1.06);
 }
 
 .algebra-tile__duplicate--left:hover {
+  background: var(--fallback-primary-on-surface-12);
   background: color-mix(in srgb, var(--primary) 12%, #fff);
   transform: translate(calc(-100% - 7px), -50%) scale(1.06);
 }
 
 .algebra-tile__duplicate--right:hover {
+  background: var(--fallback-primary-on-surface-12);
   background: color-mix(in srgb, var(--primary) 12%, #fff);
   transform: translate(7px, -50%) scale(1.06);
 }
@@ -1358,6 +1432,7 @@ body {
 .algebra-tile--neg .algebra-tile__duplicate--bottom:hover,
 .algebra-tile--neg .algebra-tile__duplicate--left:hover,
 .algebra-tile--neg .algebra-tile__duplicate--right:hover {
+  background: #fde8ec;
   background: color-mix(in srgb, #be123c 12%, #fff);
 }
 
@@ -1391,6 +1466,7 @@ body {
 }
 
 .mode-tab--active {
+  background: var(--fallback-primary-on-surface-16);
   background: color-mix(in srgb, var(--primary) 16%, var(--surface));
   color: var(--text);
   border-color: var(--primary);
@@ -1417,6 +1493,7 @@ body {
 }
 
 .equation-level-tab--active {
+  background: var(--fallback-primary-on-surface-16);
   background: color-mix(in srgb, var(--primary) 16%, var(--surface));
   color: var(--text);
   border-color: var(--primary);
@@ -1549,6 +1626,7 @@ body {
 }
 
 .math-keyboard__key:hover {
+  background: var(--fallback-primary-on-surface-08);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 
@@ -2301,6 +2379,20 @@ body {
 }
 
 .simplify-free-answer-banner__input.factor-bracket-input,
+.expand-free-answer-banner__input.factor-bracket-input,
+.factor-free-answer-banner__bracket.factor-bracket-input {
+  min-height: 2.85rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgb(147 197 253 / 0.65);
+  border-radius: 10px;
+  background: rgb(248 250 252 / 0.95);
+  font-family: var(--font-math-upright);
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.simplify-free-answer-banner__input.factor-bracket-input,
 .expand-free-answer-banner__input.factor-bracket-input {
   flex: 1 1 8rem;
   min-width: 5rem;
@@ -2340,10 +2432,10 @@ body {
 .expand-free-answer-banner__poly {
   flex-shrink: 0;
   font-size: clamp(1.05rem, 2.8vw, 1.65rem);
-  font-weight: 700;
+  font-weight: 400;
   font-style: normal;
   font-family: var(--font-math-upright);
-  color: var(--text);
+  color: #1d4ed8;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -2358,27 +2450,28 @@ body {
 .factor-free-answer-banner--dark .factor-free-answer-banner__poly,
 .simplify-free-answer-banner--dark .simplify-free-answer-banner__poly,
 .expand-free-answer-banner--dark .expand-free-answer-banner__poly {
-  color: #e2e8f0;
+  color: #93c5fd;
 }
 
 .factor-free-answer-banner__paren {
   flex-shrink: 0;
   font-size: clamp(1.05rem, 2.8vw, 1.65rem);
-  font-weight: 700;
+  font-weight: 400;
   font-style: normal;
   font-family: var(--font-math-upright);
+  color: #1d4ed8;
   line-height: 1.2;
 }
 
 .factor-free-answer-banner--dark .factor-free-answer-banner__paren {
-  color: #e2e8f0;
+  color: #93c5fd;
 }
 
 .factor-free-answer-banner__bracket.factor-bracket-input {
   flex: 0 1 5.5rem;
   min-width: 3.25rem;
   max-width: min(9.5rem, 22vw);
-   width: auto;
+  width: auto;
   font-size: clamp(0.95rem, 2.2vw, 1.2rem);
 }
 
@@ -2432,6 +2525,28 @@ body {
   border-color: rgb(96 165 250 / 0.4);
   background: rgb(30 41 59 / 0.85);
   color: #e2e8f0;
+}
+
+.simplify-free-answer-banner--dark .simplify-free-answer-banner__input.factor-bracket-input,
+.expand-free-answer-banner--dark .expand-free-answer-banner__input.factor-bracket-input,
+.factor-free-answer-banner--dark .factor-free-answer-banner__bracket.factor-bracket-input {
+  border-color: rgb(96 165 250 / 0.4);
+  background: rgb(30 41 59 / 0.85);
+  color: #e2e8f0;
+}
+
+.simplify-free-answer-banner__input.factor-bracket-input:focus,
+.expand-free-answer-banner__input.factor-bracket-input:focus,
+.factor-free-answer-banner__bracket.factor-bracket-input:focus {
+  border-color: rgb(59 130 246 / 0.8);
+  background: rgb(239 246 255 / 0.96);
+}
+
+.simplify-free-answer-banner--dark .simplify-free-answer-banner__input.factor-bracket-input:focus,
+.expand-free-answer-banner--dark .expand-free-answer-banner__input.factor-bracket-input:focus,
+.factor-free-answer-banner--dark .factor-free-answer-banner__bracket.factor-bracket-input:focus {
+  border-color: rgb(96 165 250 / 0.75);
+  background: rgb(30 41 59 / 0.96);
 }
 
 .equation-free-answer-banner__calc {
@@ -2502,27 +2617,35 @@ body {
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  background: #ea580c;
+  background: #fb923c;
   color: #fff;
-  box-shadow: 0 1px 2px rgb(234 88 12 / 0.35);
+  box-shadow: 0 8px 18px rgb(251 146 60 / 0.25);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
 .equation-free-answer-banner__refresh:hover {
-  background: #c2410c;
+  background: #f97316;
+  filter: none;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgb(249 115 22 / 0.3);
 }
 
 .equation-free-answer-banner__refresh:focus-visible {
-  outline: 2px solid rgb(234 88 12 / 0.65);
+  outline: 2px solid rgb(249 115 22 / 0.7);
   outline-offset: 2px;
 }
 
 .equation-free-answer-banner--dark .equation-free-answer-banner__refresh {
-  background: #f97316;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  background: #fb923c;
+  box-shadow: 0 10px 20px rgb(0 0 0 / 0.28);
 }
 
 .equation-free-answer-banner--dark .equation-free-answer-banner__refresh:hover {
-  background: #ea580c;
+  background: #f97316;
+  filter: none;
 }
 
 .equation-free-answer-banner__refresh-icon {
@@ -3270,9 +3393,9 @@ body {
   }
 
   .bank-sidebar.bank-sidebar--free-tools {
-    width: min(86px, 22vw) !important;
-    min-width: min(86px, 22vw);
-    max-width: min(86px, 22vw);
+    width: 90px !important;
+    min-width: 90px;
+    max-width: 90px;
   }
 
   .app__body--free-rail .workspace-column {
@@ -3516,6 +3639,7 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
+  background: #dbe7ff;
   background: color-mix(in srgb, var(--primary) 18%, #fff);
   color: var(--primary);
 }
@@ -3647,7 +3771,9 @@ body {
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 600;
+  border: 1px solid rgb(37 99 235 / 0.38);
   border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  background: var(--fallback-primary-on-surface-12);
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
   color: var(--primary);
 }
