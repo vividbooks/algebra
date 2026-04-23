@@ -13,7 +13,7 @@ export interface PlacedTile {
   id: string
   kind: TileKind
   negative: boolean
-  /** 0 = delší strana x vodorovně (šířka X_PX, výška UNIT_PX); 1 = obráceně */
+  /** 0 = delší strana x vodorovně (šířka X_PX : výška UNIT_PX = 45:19); 1 = obráceně */
   rot: 0 | 1
   /** Levý horní roh v pixelech na pracovní ploše */
   x: number
