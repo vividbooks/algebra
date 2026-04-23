@@ -1,0 +1,19 @@
+# Hostinger / Apache — static SPA (Vite + React)
+# Served from site root; upload contents of `dist/` to public_html (or subdomain folder).
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  # If the path is not a real file or folder, serve the SPA shell
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Cache hashed build assets (Vite filenames include content hashes)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

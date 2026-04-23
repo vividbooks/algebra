@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-// GitHub Pages: project site https://vividbooks.github.io/algebra/
+// Custom domain (e.g. algebra.vividbooks.com via GitHub Pages): assets must use base `/`.
+// Optional: `GITHUB_PAGES=true npm run build` for the legacy project URL https://vividbooks.github.io/algebra/
 const base = process.env.GITHUB_PAGES === 'true' ? '/algebra/' : '/'
 
 export default defineConfig({

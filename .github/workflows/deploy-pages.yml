@@ -23,9 +23,9 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Build for GitHub Pages
-        env:
-          GITHUB_PAGES: 'true'
+      # Base `/` so the app works on the custom domain algebra.vividbooks.com (public/CNAME).
+      # For https://vividbooks.github.io/algebra/ only, build locally with GITHUB_PAGES=true.
+      - name: Build for GitHub Pages (custom domain)
         run: npm run build
       - name: Disable Jekyll on Pages
         run: touch dist/.nojekyll
